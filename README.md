@@ -5,18 +5,17 @@ Built for: **hermes-desktop + Ollama (local/cloud) + OpenRouter free tier**.
 ## Structure
 
 ```
-hermes-pack/
-├── config/
-│   └── profiles.yaml          # role -> model routing (OpenRouter free / Ollama Cloud)
-└── skills/
-    ├── orchestrator/SKILL.md  # task routing, never writes code
-    ├── planner/SKILL.md       # decomposition, pipeline selection
-    ├── research-agent/SKILL.md
-    ├── php-agent/SKILL.md     # Yii2 / Laravel / Composer / PSR
-    ├── go-agent/SKILL.md      # goroutines / gRPC / fiber / gin
-    ├── devops-agent/SKILL.md  # docker / nginx / systemd / wsl / ssh
-    ├── reviewer/SKILL.md      # ALWAYS a different model, no memory
-    └── docs-agent/SKILL.md    # README / CHANGELOG
+├─ config/
+│  └── profiles.yaml          # role -> model routing (OpenRouter free / Ollama Cloud)
+└─ skills/
+   ├── orchestrator/SKILL.md  # task routing, never writes code
+   ├── planner/SKILL.md       # decomposition, pipeline selection
+   ├── research-agent/SKILL.md
+   ├── php-agent/SKILL.md     # Yii2 / Laravel / Composer / PSR
+   ├── go-agent/SKILL.md      # goroutines / gRPC / fiber / gin
+   ├── devops-agent/SKILL.md  # docker / nginx / systemd / wsl / ssh
+   ├── reviewer/SKILL.md      # ALWAYS a different model, no memory
+   └── docs-agent/SKILL.md    # README / CHANGELOG
 ```
 
 ## Installation (for hermes-desktop)
