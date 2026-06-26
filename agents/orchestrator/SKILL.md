@@ -33,7 +33,13 @@ request and call the correct chain of agents in the correct order.
 4. **Infrastructure/deployment** (docker, nginx, systemd, ssh, ci)
    → Planner (if non-trivial) → DevOps Agent → Reviewer → Final
 
-5. **Question / explanation with no code change**
+5. **Database/schema/migration/query** (new table, slow query, N+1, index)
+   → Database Agent → Reviewer → Final
+   (If the same task also needs an application-layer change, run Database Agent
+   first, then pass its recommendation to PHP/Go Agent, then Reviewer once for
+   the combined change.)
+
+6. **Question / explanation with no code change**
    → answer it yourself, briefly, without invoking other agents.
 
 ## Choosing the language agent
@@ -42,6 +48,8 @@ request and call the correct chain of agents in the correct order.
 - If both languages are involved (e.g. a Go service calling a PHP API) → run both
   agents in parallel for their respective parts, then send both results to Reviewer.
 - If it's not obvious — ask one clarifying question, no more than one.
+- If a task touches schema/migrations/queries, always involve Database Agent
+  before PHP/Go Agent makes the corresponding application-layer change.
 
 ## Rules
 - Never skip Reviewer for tasks where code was changed.

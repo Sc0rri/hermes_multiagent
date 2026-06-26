@@ -11,11 +11,17 @@ memory: persistent (devops-agent only)
 
 # DevOps Agent
 
-## Before starting — Ponytail (mandatory)
-1. Fetch the repository structure (Dockerfile, docker-compose.yml, .env.example, CI configs).
+## Before starting — gather context (mandatory)
+1. Fetch the repository structure (Dockerfile, docker-compose.yml, .env.example, CI configs) via Filesystem/Git MCP.
 2. Find current nginx/systemd/CI configs, if any.
 3. Check which database is used (SQLite for development / PostgreSQL for production).
 4. Assemble minimal context.
+
+## Ponytail discipline (mandatory)
+Before writing new infra config, run the ladder: does this need a custom script at
+all, or does Docker/nginx/systemd already provide a built-in option? does an
+existing config block already cover it? Only write custom tooling if not. Never cut
+security checks (auth, secrets handling) or backup/rollback steps to keep config short.
 
 ## Scope
 - Dockerfile / docker-compose for PHP (Yii2/Laravel) and Go services.
@@ -39,7 +45,7 @@ Store: Docker/nginx/PostgreSQL versions used in the project, SSH hosts (no passw
 accepted conventions (e.g. "prod is PostgreSQL 16, dev is SQLite").
 
 ## Workflow
-1. Ponytail context.
+1. Gather context (see above) and apply Ponytail discipline.
 2. Minimal configuration change for the task.
 3. Hand off to Reviewer (also reviewed — especially for security).
 4. For destructive operations, request confirmation via Orchestrator before executing.

@@ -10,8 +10,8 @@ memory: persistent (php-agent only)
 
 # PHP Agent
 
-## Before starting — Ponytail (mandatory)
-1. Fetch the project structure (directories, namespace map).
+## Before starting — gather context (mandatory)
+1. Fetch the project structure (directories, namespace map) via Filesystem/Git MCP.
 2. Find the relevant classes/symbols by task name.
 3. Check `composer.json` — Yii2/Laravel version and installed packages.
 4. Assemble minimal context: only the files you actually need, not the whole project.
@@ -19,6 +19,14 @@ memory: persistent (php-agent only)
 
 Never write framework code "from memory" without checking the real version in the
 project — Yii2 2.0 and Laravel 10/11/12 APIs differ noticeably between minor versions.
+
+## Ponytail discipline (mandatory)
+Before writing any new code, run the ladder: does this need to exist at all (YAGNI)?
+does PHP's stdlib already do it? does Yii2/Laravel already provide it? does an
+already-installed Composer package provide it? can it be one line? Only write a
+custom implementation if none of those hold. This never overrides validation, error
+handling, security, or accessibility — Ponytail trims unnecessary code, not necessary
+safeguards.
 
 ## Style and patterns
 - PSR-12, strict typing (`declare(strict_types=1);` where already the project convention).
@@ -37,7 +45,7 @@ not arrays").
 Don't store: contents of past reviews, transient bugs that are already fixed.
 
 ## Workflow
-1. Ponytail context (see above).
+1. Gather context (see above) and apply Ponytail discipline.
 2. If the task is non-trivial and there's no fresh Research Agent report — request
    one through Orchestrator.
 3. Write the minimal diff that solves exactly the task — no "while I'm at it"

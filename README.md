@@ -2,29 +2,14 @@
 
 Built for: **hermes-desktop + Ollama (local/cloud) + OpenRouter free tier**.
 
-## Structure
-
-```
-├─ config/
-│  └── profiles.yaml          # role -> model routing (OpenRouter free / Ollama Cloud)
-└─ skills/
-   ├── orchestrator/SKILL.md  # task routing, never writes code
-   ├── planner/SKILL.md       # decomposition, pipeline selection
-   ├── research-agent/SKILL.md
-   ├── php-agent/SKILL.md     # Yii2 / Laravel / Composer / PSR
-   ├── go-agent/SKILL.md      # goroutines / gRPC / fiber / gin
-   ├── devops-agent/SKILL.md  # docker / nginx / systemd / wsl / ssh
-   ├── reviewer/SKILL.md      # ALWAYS a different model, no memory
-   └── docs-agent/SKILL.md    # README / CHANGELOG
-```
-
 ## Installation (for hermes-desktop)
 
 1. In hermes-desktop: Settings → Providers → add OpenRouter (key from openrouter.ai) and Ollama (local or Cloud URL).
 2. Copy `config/profiles.yaml` → `~/.hermes/profiles.yaml` (or import via `/profile import` if your version supports it — check `/profile help`).
-3. Copy each folder from `skills/` into `~/.hermes/skills/<name>/SKILL.md` (or via UI: Skills → Import).
-4. In `orchestrator/SKILL.md`, make sure the agent names match exactly what you named them when creating agents in hermes-desktop (Agents → Create).
-5. Smoke test: give the task "Fix the bug in LoginController" and confirm the chain that fires is Research → PHP Agent → Reviewer — not every agent at once.
+3. Copy each folder from `agents/` into `~/.hermes/skills/<name>/SKILL.md` (or via UI: Skills → Import). Note: hermes-desktop's own folder is still called `skills/` internally — this pack just calls it `agents/` at the repo level for clarity.
+4. In `agents/orchestrator/SKILL.md`, make sure the agent names match exactly what you named them when creating agents in hermes-desktop (Agents → Create).
+5. Register the MCP servers listed in `mcp/README.md` (Filesystem, Git — minimum set), and install Ponytail as a skill/plugin per its own install docs (it's a coding-discipline skill, not an MCP context server — see https://github.com/DietrichGebert/ponytail for the install path matching your host).
+6. Smoke test: see `tests/smoke-tests.md`.
 
 ## Pipeline logic (Planner decides dynamically)
 
@@ -34,6 +19,7 @@ Built for: **hermes-desktop + Ollama (local/cloud) + OpenRouter free tier**.
 | Bug fix | Research → PHP/Go Agent → Reviewer → Final |
 | Docs only | Docs Agent → Final |
 | Infrastructure (docker/deploy) | Planner → DevOps Agent → Reviewer → Final |
+| Schema/migration/query | Database Agent → Reviewer → Final (then PHP/Go Agent if app-layer code also changes) |
 
 ## Cross-model review (mandatory for code)
 
@@ -62,19 +48,37 @@ Reviewer compares both variants before finalizing.
   versions used in the project.
 - **Go Agent**: goroutines/channels, gRPC, fiber/gin, project modules.
 - **DevOps Agent**: docker/nginx/systemd/wsl/ssh hosts, project environment variables.
+- **Database Agent**: schema shape, naming conventions, dev-vs-prod engine (SQLite/PostgreSQL).
 - **Reviewer**: memory fully disabled — every review is independent, with no knowledge
   of past decisions.
 - **Research/Docs/Planner/Orchestrator**: shared short-term session memory only, no
   long-term accumulation of stack-specific details.
 
+## MCP servers
+
+See `mcp/README.md` for the full list (Filesystem, Git, SQLite, GitHub) and which
+agents need which. Minimum to start: Filesystem + Git (Reviewer should get
+**read-only** Git/Filesystem access if your hermes-desktop version supports scoping).
+
 ## Ponytail (mandatory for every coding agent)
 
-Before calling any LLM, a coding agent must:
-1. Fetch the project structure.
-2. Find relevant symbols/files.
-3. Resolve dependencies (composer.json / go.mod).
-4. Assemble a minimal but precise context.
-5. Only then send the request to the model.
+Ponytail is a coding-discipline skill ("the laziest senior dev in the room"), not a
+context-fetching tool. It's installed as a plugin/skill alongside the agents (see
+https://github.com/DietrichGebert/ponytail for the install method matching your
+host) and makes every coding agent check, before writing anything new:
 
-This isn't a separate SKILL.md — it's a rule embedded at the top of php-agent,
-go-agent, and devops-agent.
+1. Does this need to exist at all? (YAGNI)
+2. Does the language's stdlib already do it?
+3. Does the framework (Yii2/Laravel/Go stdlib) already provide it?
+4. Does an already-installed dependency provide it?
+5. Can it be done in one line?
+6. Only then: write the minimum custom code that actually works.
+
+It never trims validation, error handling, security checks, or accessibility — only
+unnecessary code. This is embedded as a "Ponytail discipline" section in
+php-agent, go-agent, devops-agent, and database-agent.
+
+Separately, before calling any LLM, a coding agent must also gather project context
+(structure, relevant symbols/files, dependency files like composer.json/go.mod) via
+the Filesystem/Git MCP — that's a distinct step from Ponytail and is described in
+each agent's "gather context" section.
