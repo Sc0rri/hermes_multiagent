@@ -4,6 +4,18 @@
 
 profiles:
 
+  tiebreak:
+    role: resolve-confidence-low
+
+  orchestrator:
+    role: dispatch
+
+  planner:
+    role: decompose
+
+  researcher:
+    web: true
+
   php-dev:
     languages: [php]
     frameworks: [yii2, laravel]
@@ -32,12 +44,3 @@ profiles:
   reviewer:
     languages: [php, go, sql, bash, yaml]
     mode: review
-
-  researcher:
-    web: true
-
-  planner:
-    role: decompose
-
-  orchestrator:
-    role: dispatch
