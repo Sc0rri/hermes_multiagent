@@ -1,0 +1,41 @@
+# Tool Policy — per-agent allow/deny list. If Ponytail + Filesystem MCP already
+# index and search the project, there's no reason to let an agent shell out to
+# `grep`/`find` and re-discover what's already indexed — that's slower, less
+# precise, and burns tokens re-deriving information the MCP layer already has.
+
+agents:
+
+  php-agent:
+    preferred_tools: [ponytail, filesystem_mcp, git_mcp, composer]
+    forbidden_tools: [grep, find, raw_shell_search]
+
+  go-agent:
+    preferred_tools: [ponytail, filesystem_mcp, git_mcp]
+    forbidden_tools: [grep, find, raw_shell_search]
+
+  database-agent:
+    preferred_tools: [ponytail, filesystem_mcp, git_mcp, sqlite_mcp]
+    forbidden_tools: [grep, find]
+
+  devops-agent:
+    preferred_tools: [filesystem_mcp, git_mcp]
+    forbidden_tools: [grep, find]
+    # Note: devops-agent may still need raw shell for actual container/service
+    # operations (docker ps, systemctl status) — the forbidden list above is
+    # specifically about *searching/reading* the repo, not operating infra.
+
+  reviewer:
+    preferred_tools: [git_mcp_readonly, filesystem_mcp_readonly]
+    forbidden_tools: [grep, find, filesystem_write, git_write]
+
+  research-agent:
+    preferred_tools: [web_search, web_fetch]
+    forbidden_tools: [filesystem_write]
+
+  docs-agent:
+    preferred_tools: [filesystem_mcp, git_mcp]
+    forbidden_tools: [grep, find]
+
+# Rule: if a "forbidden" tool is the ONLY way to complete a step (e.g. Ponytail/
+# Filesystem MCP is down), the agent should say so explicitly and ask Orchestrator
+# rather than silently falling back to raw shell search.

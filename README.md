@@ -5,13 +5,19 @@ Built for: **hermes-desktop + Ollama (local/cloud) + OpenRouter free tier**.
 ## Installation (for hermes-desktop)
 
 1. In hermes-desktop: Settings → Providers → add OpenRouter (key from openrouter.ai) and Ollama (local or Cloud URL).
-2. Copy `config/profiles/*.yaml` and `config/review_policy.yaml` into `~/.hermes/` (or import via `/profile import` if your version supports it — check `/profile help`). Each profile is its own file under `profiles/` so you can update one model without touching the rest.
+2. Copy everything under `config/` (`profiles/*.yaml`, `review_policy.yaml`, `capabilities.yaml`, `cost_policy.yaml`, `context_policy.yaml`, `tool_policy.yaml`) into `~/.hermes/` (or import via `/profile import` if your version supports it — check `/profile help`). Each profile is its own file under `profiles/` so you can update one model without touching the rest.
 3. Copy each folder from `agents/` into `~/.hermes/skills/<name>/SKILL.md` (or via UI: Skills → Import). Note: hermes-desktop's own folder is still called `skills/` internally — this pack just calls it `agents/` at the repo level for clarity.
 4. In `agents/orchestrator/SKILL.md`, make sure the agent names match exactly what you named them when creating agents in hermes-desktop (Agents → Create).
 5. Register the MCP servers listed in `mcp/README.md` (Filesystem, Git — minimum set), and install Ponytail as a skill/plugin per its own install docs (it's a coding-discipline skill, not an MCP context server — see https://github.com/DietrichGebert/ponytail for the install path matching your host).
 6. Smoke test: see `tests/smoke-tests.md`.
 
-## Pipeline logic (Planner decides dynamically)
+## Pipeline logic (Planner decides dynamically, routed via Capability Registry)
+
+Planner/Orchestrator don't hardcode agent names — they look up
+`config/capabilities.yaml` for who declares the relevant language/framework/
+database, then route there. The table below shows current routing given today's
+agents; adding a new specialist later means adding a `capabilities.yaml` entry,
+not rewriting Planner/Orchestrator prompts.
 
 | Task type | Pipeline |
 |---|---|
@@ -20,6 +26,37 @@ Built for: **hermes-desktop + Ollama (local/cloud) + OpenRouter free tier**.
 | Docs only | Docs Agent → Final |
 | Infrastructure (docker/deploy) | Planner → DevOps Agent → Reviewer → Final |
 | Schema/migration/query | Database Agent → Reviewer → Final (then PHP/Go Agent if app-layer code also changes) |
+
+## Cost policy (free-tier quota is finite)
+
+`config/cost_policy.yaml` scales which *stages* run at all (not which Reviewer
+passes — that's review policy below) to task complexity:
+
+| Complexity | Pipeline | Trigger |
+|---|---|---|
+| `low` | Planner optional → Developer → Review (trivial) | single-file fix, no unfamiliar APIs |
+| `medium` (default) | Planner → Research if needed → Developer → Review (normal) | ordinary feature/bugfix |
+| `high` | Planner → Research → Developer → Review with specialized passes | multi-file, unfamiliar library, or matches security/performance/architecture keywords |
+
+A security/performance/architecture keyword match always forces at least `high`,
+regardless of how small the diff looks — cost savings never skip a
+security-relevant review.
+
+## Context policy (the LLM never explores the repo itself)
+
+`config/context_policy.yaml` caps what gets assembled before any model call
+(`max_files: 12`, `max_tokens: 18000` by default) and enforces the order: Ponytail
+discipline check → Filesystem MCP symbol search → Git MCP history (only if
+relevant) → capped, assembled context → LLM. See `mcp/README.md` → "Context
+Pipeline" for the full diagram. If a task needs more than the cap, that's a signal
+to decompose it via Planner, not to silently exceed the limit.
+
+## Tool policy (don't re-discover what the MCP layer already indexed)
+
+`config/tool_policy.yaml` gives each agent a preferred/forbidden tool list — coding
+agents use Ponytail/Filesystem MCP/Git MCP and are explicitly forbidden from raw
+`grep`/`find`, since re-deriving what Filesystem MCP already indexed wastes tokens
+and is less precise. Reviewer's tools are all read-only.
 
 ## Cross-model review (mandatory for code) — review policies, not separate agents
 

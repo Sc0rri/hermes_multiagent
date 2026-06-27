@@ -17,6 +17,26 @@ following MCP servers to be available to the relevant agents in hermes-desktop:
 | **SQLite MCP** | Database Agent | Inspect local dev database directly (schema, row counts, query plans). |
 | **GitHub MCP** | Orchestrator, Documentation Agent | Open PRs, read/close Issues, post review comments — only if you want Hermes to interact with GitHub directly rather than just local git. Optional; skip if you don't want it touching your remote repo. |
 
+## Context Pipeline (the LLM never searches for files itself)
+
+```
+Ponytail (decide if new code is even needed, YAGNI check)
+        ↓
+Filesystem MCP (symbol/file search — find exactly what's relevant)
+        ↓
+Git MCP (history/diff/blame — only if the task is "fix this" or "why did X change")
+        ↓
+LLM receives an already-assembled, capped context (see config/context_policy.yaml)
+```
+
+The model is never handed a raw "go explore the repo" task — by the time a coding
+agent calls the model, Filesystem/Git MCP have already narrowed things down to the
+specific files/symbols/history the task needs, capped by `max_files`/`max_tokens` in
+`config/context_policy.yaml`. This is also why `config/tool_policy.yaml` forbids
+`grep`/`find` for coding agents — if Filesystem MCP already indexes and searches the
+project, falling back to shell search means redoing (worse) what the MCP layer
+already did, and burns tokens explaining the result back to the model.
+
 ## Setup notes
 
 - Register each MCP server in hermes-desktop under Settings -> MCP Servers (or via

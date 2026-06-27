@@ -42,14 +42,47 @@ request and call the correct chain of agents in the correct order.
 6. **Question / explanation with no code change**
    → answer it yourself, briefly, without invoking other agents.
 
-## Choosing the language agent
-- If the context is PHP/Yii2/Laravel/Composer → PHP Agent.
-- If the context is Go/gRPC/fiber/gin → Go Agent.
+## Choosing the executor agent (via Capability Registry)
+Do not hardcode "PHP → PHP Agent". Instead, look up `config/capabilities.yaml` and
+route to whichever agent declares the relevant language/framework/database:
+- Task mentions Yii2/Laravel/Composer/PHP → the agent with `php`/`yii2`/`laravel`
+  in its capabilities (currently php-agent).
+- Task mentions Go/fiber/gin/gRPC → the agent with `go` in its capabilities
+  (currently go-agent).
+- Task touches schema/migrations/queries → the agent with `can_review: false` and
+  the matching `databases` entry whose role is schema-focused (currently
+  database-agent) — always before the language agent makes the corresponding
+  application-layer change.
 - If both languages are involved (e.g. a Go service calling a PHP API) → run both
-  agents in parallel for their respective parts, then send both results to Reviewer.
-- If it's not obvious — ask one clarifying question, no more than one.
-- If a task touches schema/migrations/queries, always involve Database Agent
-  before PHP/Go Agent makes the corresponding application-layer change.
+  matching agents in parallel for their respective parts, then send both results
+  to Reviewer (the only agent with `can_review: true`).
+- If no agent's capabilities match, or more than one plausible match exists and
+  it's not obvious which — ask one clarifying question, no more than one. A
+  genuinely unmatched capability (e.g. a new framework not in the registry) is a
+  signal to add a new agent entry to `capabilities.yaml`, not to force-fit an
+  existing agent.
+
+## Cost policy (free-tier quota is a limited resource)
+Before dispatching, estimate complexity using `config/cost_policy.yaml`:
+- `low` — single-file/trivial → skip Planner, minimal pipeline.
+- `medium` — default for ordinary features/bugfixes.
+- `high` — multi-file/unfamiliar library, or matches review_policy's security/
+  performance/architecture keywords (a keyword match always forces at least `high`,
+  regardless of how small the diff looks — cost savings never skip a
+  security-relevant review).
+This decides whether Research/Planner run at all — separate from review policy,
+which decides how many Reviewer passes run once you're already reviewing.
+
+## Context discipline
+Every coding agent follows the pipeline in `mcp/README.md` ("Context Pipeline"):
+Ponytail discipline check → Filesystem MCP symbol search → Git MCP history (only
+if relevant) → assembled context capped per `config/context_policy.yaml`
+(`max_files`, `max_tokens`). If an agent says it needs more than the cap to answer
+one task, that's a signal the task should have gone through Planner for
+decomposition — don't just wave the cap through.
+Tool usage per agent follows `config/tool_policy.yaml` — coding agents use
+Ponytail/Filesystem MCP/Git MCP, not raw `grep`/`find`, since the MCP layer already
+indexes the project.
 
 ## Review policy
 For every pipeline that includes Reviewer, a review policy from

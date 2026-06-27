@@ -1,0 +1,72 @@
+# Capability Registry — Planner/Orchestrator query THIS, not agent names directly.
+# Adding a new agent (e.g. a future "redis-agent") means adding an entry here,
+# not rewriting Planner's or Orchestrator's prompt.
+
+agents:
+
+  php-agent:
+    languages: [php]
+    frameworks: [yii2, laravel]
+    databases: [mysql, postgres, sqlite]   # read/uses them, doesn't design schema
+    can_review: false
+    tools: [ponytail, filesystem, git, composer]
+
+  go-agent:
+    languages: [go]
+    frameworks: [fiber, gin, grpc]
+    databases: [postgres, mysql, sqlite]
+    can_review: false
+    tools: [ponytail, filesystem, git]
+
+  database-agent:
+    languages: [sql]
+    frameworks: []
+    databases: [mysql, postgres, sqlite]
+    can_review: false
+    tools: [ponytail, filesystem, git, sqlite_mcp]
+
+  devops-agent:
+    languages: [bash, yaml]
+    frameworks: [docker, nginx, systemd]
+    databases: []
+    can_review: false
+    tools: [filesystem, git]
+
+  research-agent:
+    languages: []
+    frameworks: []
+    databases: []
+    can_review: false
+    tools: [web_search]
+
+  docs-agent:
+    languages: []
+    frameworks: []
+    databases: []
+    can_review: false
+    tools: [filesystem, git]
+
+  reviewer:
+    languages: [php, go, sql, bash, yaml]
+    frameworks: [yii2, laravel, fiber, gin, docker, nginx]
+    databases: [mysql, postgres, sqlite]
+    can_review: true
+    tools: [filesystem_readonly, git_readonly]
+
+  planner:
+    languages: []
+    frameworks: []
+    databases: []
+    can_review: false
+    tools: []
+
+# How Orchestrator/Planner use this file:
+# Instead of hardcoding "if PHP -> PHP Agent", they ask:
+#   "which agent has `yii2` in frameworks, or `php` in languages?"
+# and route to whichever agent(s) match. If a future task needs a capability no
+# agent declares (e.g. `redis` as a first-class framework), that's the signal to
+# add a new agent entry here rather than overload an existing agent's prompt.
+#
+# `can_review: true` is reserved for Reviewer — exactly one agent should have it,
+# enforcing that review always happens through the independent Reviewer, never
+# through a coding agent reviewing its own or another coding agent's work.

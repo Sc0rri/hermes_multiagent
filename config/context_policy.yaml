@@ -1,0 +1,27 @@
+# Context Policy — hard limits on what gets assembled before any LLM call.
+# This exists because the single biggest failure mode in multi-agent dev setups
+# is dumping the whole repo into context "to be safe". Limits below are caps,
+# not targets — agents should aim for far less when the task allows it.
+
+context:
+  max_files: 12
+  max_tokens: 18000
+  prefer_ponytail: true        # apply Ponytail's YAGNI discipline before deciding what to even write
+  prefer_git_history: true     # use Git MCP diff/blame instead of re-reading whole files for "what changed"
+  prefer_symbol_search: true   # find the specific symbol/function via Filesystem MCP, not directory dumps
+
+# Order of operations (also see mcp/README.md "Context Pipeline"):
+#   1. Symbol search (Filesystem MCP) — find exactly the function/class/file the
+#      task names or implies. Do not list/read whole directories speculatively.
+#   2. Git history (Git MCP) — if the task is "fix this bug" or "why did X change",
+#      pull the relevant diff/blame instead of asking the LLM to infer history from
+#      current state alone.
+#   3. Dependency check — composer.json / go.mod, only the relevant section, not
+#      the full file dump if it's large.
+#   4. Assemble: trim to max_files / max_tokens BEFORE sending to the model. If the
+#      task genuinely needs more, that's a signal to ask the user to narrow scope
+#      or split the task — not to silently exceed the cap.
+#
+# If an agent finds itself wanting to read more than max_files to answer a single
+# task, that's a sign the task should go through Planner for decomposition instead
+# of being handled as one flat context dump.
