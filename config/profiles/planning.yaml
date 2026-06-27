@@ -1,6 +1,0 @@
-# Profile: PLANNING
-# Alias of REASONING, kept as a separate file so Planner's profile can be tuned
-# independently later without touching Reviewer's architecture-mode reasoning.
-description: "Task decomposition and pipeline/review-policy selection (Planner)"
-primary:  { provider: openrouter, model: "deepseek/deepseek-r1:free" }
-fallback: { provider: ollama_cloud, model: "qwen3:32b-thinking" }

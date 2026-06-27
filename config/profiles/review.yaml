@@ -1,4 +1,0 @@
-# REVIEW profile — default reviewer model
-description: "Reviewer — MUST be a different model/family than CODING"
-primary:  { provider: openrouter, model: "google/gemma-3-27b-it:free" }
-fallback: { provider: ollama_cloud, model: "gemma3:27b" }

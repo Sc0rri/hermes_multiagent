@@ -1,0 +1,21 @@
+name: fullstack-php-go
+version: 0.2.0
+description: "Full-stack development pack (PHP/Yii2/Laravel, Go). 5-phase pipeline via profiles + skills."
+hermes_requires: ">=0.16.0"
+author: "Sc0rri"
+license: MIT
+distribution_owned:
+  - SOUL.md
+  - skills/
+  - cron/
+  - scripts/
+  - distribution.yaml
+  - README.md
+env_requires:
+  - name: OPENROUTER_API_KEY
+    description: "OpenRouter API key (free tier is enough)"
+    required: true
+  - name: OLLAMA_API_KEY
+    description: "Ollama Cloud API key"
+    required: false
+    default: ""

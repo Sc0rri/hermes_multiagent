@@ -1,4 +1,0 @@
-# PERFORMANCE profile — used only for the performance review mode (see review_policy.yaml)
-description: "Performance-focused review pass — N+1 queries, concurrency, caching, indexing"
-primary:  { provider: openrouter, model: "meta-llama/llama-3.3-70b-instruct:free" }
-fallback: { provider: ollama_cloud, model: "llama3.3:70b" }

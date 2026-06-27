@@ -1,4 +1,0 @@
-# CODING_ALT profile
-description: "Alternate coding model — for a second opinion / hard tasks (must differ from CODING!)"
-primary:  { provider: openrouter, model: "qwen/qwen3-coder:free" }
-fallback: { provider: ollama_cloud, model: "deepseek-coder-v2:16b" }

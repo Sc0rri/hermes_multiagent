@@ -1,4 +1,0 @@
-# CODING profile
-description: "Primary code writer (PHP/Go/Database/DevOps agent)"
-primary:  { provider: openrouter, model: "deepseek/deepseek-chat-v3.1:free" }
-fallback: { provider: ollama_cloud, model: "qwen2.5-coder:32b" }

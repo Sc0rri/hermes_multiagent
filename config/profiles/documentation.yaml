@@ -1,5 +1,0 @@
-# Profile: DOCS
-# Documentation, README, CHANGELOG — stable, coherent prose
-description: "Documentation, README, CHANGELOG — stable, coherent prose"
-primary:  { provider: openrouter, model: "mistralai/mistral-small-3.1-24b-instruct:free" }
-fallback: { provider: ollama_cloud, model: "mistral-small:24b" }

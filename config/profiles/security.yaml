@@ -1,4 +1,0 @@
-# SECURITY profile — used only for the security review mode (see review_policy.yaml)
-description: "Security-focused review pass — auth, crypto, SQL injection, secrets, access control"
-primary:  { provider: openrouter, model: "qwen/qwen3-235b-a22b:free" }
-fallback: { provider: ollama_cloud, model: "qwen3:30b" }
