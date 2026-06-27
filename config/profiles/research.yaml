@@ -1,0 +1,4 @@
+# RESEARCH profile
+description: "Looking up current documentation / best practices"
+primary:  { provider: openrouter, model: "meta-llama/llama-3.3-70b-instruct:free" }
+fallback: { provider: ollama_cloud, model: "llama3.3:70b" }

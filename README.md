@@ -5,7 +5,7 @@ Built for: **hermes-desktop + Ollama (local/cloud) + OpenRouter free tier**.
 ## Installation (for hermes-desktop)
 
 1. In hermes-desktop: Settings → Providers → add OpenRouter (key from openrouter.ai) and Ollama (local or Cloud URL).
-2. Copy `config/profiles.yaml` → `~/.hermes/profiles.yaml` (or import via `/profile import` if your version supports it — check `/profile help`).
+2. Copy `config/profiles/*.yaml` and `config/review_policy.yaml` into `~/.hermes/` (or import via `/profile import` if your version supports it — check `/profile help`). Each profile is its own file under `profiles/` so you can update one model without touching the rest.
 3. Copy each folder from `agents/` into `~/.hermes/skills/<name>/SKILL.md` (or via UI: Skills → Import). Note: hermes-desktop's own folder is still called `skills/` internally — this pack just calls it `agents/` at the repo level for clarity.
 4. In `agents/orchestrator/SKILL.md`, make sure the agent names match exactly what you named them when creating agents in hermes-desktop (Agents → Create).
 5. Register the MCP servers listed in `mcp/README.md` (Filesystem, Git — minimum set), and install Ponytail as a skill/plugin per its own install docs (it's a coding-discipline skill, not an MCP context server — see https://github.com/DietrichGebert/ponytail for the install path matching your host).
@@ -21,26 +21,54 @@ Built for: **hermes-desktop + Ollama (local/cloud) + OpenRouter free tier**.
 | Infrastructure (docker/deploy) | Planner → DevOps Agent → Reviewer → Final |
 | Schema/migration/query | Database Agent → Reviewer → Final (then PHP/Go Agent if app-layer code also changes) |
 
-## Cross-model review (mandatory for code)
+## Cross-model review (mandatory for code) — review policies, not separate agents
+
+There is still only **one Reviewer agent** — it runs different passes depending on
+the review policy Orchestrator/Planner selects from `config/review_policy.yaml`.
+Each pass uses its own model profile, always different from CODING:
 
 ```
-PHP/Go Agent (CODING profile) → writes code
+PHP/Go/Database/DevOps Agent (CODING profile) → writes code
         ↓
-Reviewer (REVIEW profile, different model!) → checks:
-  - bugs
-  - SOLID/PSR violations
-  - performance issues
-  - security issues
+Reviewer runs the passes required by the chosen policy:
+
+  trivial / normal (default, ~90% of tasks):
+    Pass 1 — Review (REVIEW profile)
+
+  security (auth/payments/crypto/raw SQL/public API):
+    Pass 1 — Review (REVIEW)  +  Pass 2 — Security (SECURITY profile)
+
+  performance (query optimization/Redis/queues/concurrency):
+    Pass 1 — Review (REVIEW)  +  Pass 3 — Performance (PERFORMANCE profile)
+
+  architecture (new service/cross-module refactor):
+    Pass 1 — Review  +  Pass 2 — Security  +  Pass 4 — Architecture
+
+  consensus (Planner flags as critical, or a pass comes back low-confidence):
+    Pass 1 — Review  +  Pass 2 — Security  +  Pass 3 — Performance
         ↓
-  Reject → back to PHP/Go Agent with specific notes (max 3 cycles)
-  Approve → final answer to the user
+  Any REJECT from any pass → back to the executor with all notes from all passes
+  at once (max 3 cycles)
+  All passes APPROVE → final answer to the user
 ```
 
 The user only sees the final answer unless they explicitly asked to see drafts/review steps.
 
 For complex tasks (new features, architectural decisions), Planner can additionally
 run an independent check via the CODING_ALT profile in parallel with CODING, and
-Reviewer compares both variants before finalizing.
+Reviewer's first pass compares both variants before finalizing.
+
+**Tie-break instead of a second full review**: if a pass returns `Confidence: low`,
+Orchestrator can ask one additional model a single focused question — "given this
+diff and these notes, who's right?" — using a third profile. This is far cheaper on
+free-tier quota than always running 2-3 full passes.
+
+**Roadmap (not implemented yet):**
+- 🔜 Confidence score parsed automatically from each pass, with Orchestrator
+  auto-escalating to the tie-break only when confidence is actually low, rather than
+  relying on Reviewer to flag it explicitly.
+- 🔜 A real `consensus` short-circuit: instead of running a full third pass, ask the
+  tie-break question directly when Review and a specialized pass disagree.
 
 ## Memory (strictly separated)
 

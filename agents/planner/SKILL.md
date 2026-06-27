@@ -5,7 +5,7 @@ description: >
   infrastructure changes) into concrete steps for the PHP/Go/DevOps agents.
   Does not write code. Used only when Orchestrator classifies the task as
   "new feature" or "complex infrastructure".
-profile: REASONING
+profile: PLANNING
 memory: session-only
 ---
 
@@ -29,8 +29,16 @@ handed to a single executor (PHP Agent, Go Agent, or DevOps Agent).
 5. If the task is complex enough that there's a risk of a wrong approach (not just
    a syntax error), mark the step `dual-check: true` so Orchestrator runs it through
    both the CODING and CODING_ALT profiles in parallel, passing both results to Reviewer.
-6. Do not include Reviewer or Docs Agent in the plan — Orchestrator appends them
-   automatically at the end of the pipeline.
+6. Pick a **review policy** from `config/review_policy.yaml` based on what the task
+   touches: `trivial`, `normal` (default), `security`, `performance`, `architecture`,
+   or `consensus`. Match by keywords — auth/payments/crypto/raw SQL → `security`;
+   query optimization/Redis/queues/concurrency → `performance`; new service/
+   cross-module refactor → `architecture`. If more than one applies, pick the more
+   expensive matching policy. State it as the last line of the plan.
+7. Do not include Reviewer itself as a numbered step, and do not list security/
+   performance/architecture as separate agents — they are passes Reviewer runs
+   according to the policy you picked, not agents you invoke directly. Docs Agent
+   is also appended automatically by Orchestrator, not by you.
 
 ## Output format
 ```
@@ -39,6 +47,7 @@ Steps:
 1. Research: <what needs to be found out>
 2. PHP Agent: <specific change>  [dual-check: true|false]
 3. ...
+Review policy: <trivial|normal|security|performance|architecture|consensus>
 ```
 
 ## Constraints

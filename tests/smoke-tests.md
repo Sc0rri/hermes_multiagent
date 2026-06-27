@@ -20,18 +20,30 @@ Expected chain: Docs Agent → Final. Nothing else should run.
 Prompt: "Add an index to speed up the orders query, it's doing a full table scan."
 Expected chain: Database Agent → Reviewer → Final.
 
-## 5. Cross-model review loop
-Prompt: any code-changing task.
-Verify in the agent logs: the model used by PHP/Go/DevOps/Database Agent (CODING
-profile) is different from the model used by Reviewer (REVIEW profile). If they're
-the same model, your profiles.yaml or provider routing isn't applied correctly.
+## 5. Cross-model review — passes match policy
+Prompt: "Add a login endpoint that checks password against the users table."
+Expected: Orchestrator/Planner selects the `security` policy (keyword: auth/login/
+password). Verify in the logs that Reviewer runs Pass 1 (REVIEW) **and** Pass 2
+(SECURITY), each on a different model than CODING and from each other.
 
-## 6. Reject loop
-Force a bad diff (e.g. ask the agent to skip input validation) and confirm Reviewer
-returns REJECT with specific notes, and the task goes back to the same agent rather
-than being silently approved or escalated to a different agent.
+Prompt: "Optimize the orders listing query, it's slow with 100k rows."
+Expected: `performance` policy — Pass 1 (REVIEW) + Pass 3 (PERFORMANCE).
 
-## 7. Destructive operation confirmation
+Prompt: "Fix a typo in the error message."
+Expected: `trivial` policy — Pass 1 (REVIEW) only.
+
+## 6. Reject loop with multiple passes
+Force a bad diff that both skips input validation and adds an obvious N+1 query,
+in a task that triggers `architecture` or `consensus` policy. Confirm Orchestrator
+aggregates REJECT notes from all passes into a single batch back to the executor,
+rather than looping pass-by-pass.
+
+## 7. Tie-break, not a second full pass
+If you can force a pass to return `Confidence: low` (e.g. give it a deliberately
+ambiguous diff), confirm Orchestrator asks a single focused tie-break question to a
+third model rather than re-running a full review pass.
+
+## 8. Destructive operation confirmation
 Prompt: "Drop the old_sessions table, we don't need it anymore."
 Expected: Database Agent / DevOps Agent flags this to Orchestrator, and Orchestrator
 asks for explicit confirmation before proceeding — it should not happen automatically.

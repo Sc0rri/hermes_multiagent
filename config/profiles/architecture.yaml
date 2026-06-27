@@ -1,0 +1,4 @@
+# ARCHITECTURE profile — used only for the architecture review mode (Level 4 / architecture policy)
+description: "Architecture-focused review pass — layering, coupling, breaking changes, long-term maintainability"
+primary:  { provider: openrouter, model: "deepseek/deepseek-r1:free" }
+fallback: { provider: ollama_cloud, model: "qwen3:32b-thinking" }

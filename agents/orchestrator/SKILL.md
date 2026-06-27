@@ -51,6 +51,22 @@ request and call the correct chain of agents in the correct order.
 - If a task touches schema/migrations/queries, always involve Database Agent
   before PHP/Go Agent makes the corresponding application-layer change.
 
+## Review policy
+For every pipeline that includes Reviewer, a review policy from
+`config/review_policy.yaml` must be selected:
+- If Planner ran, use the policy it picked.
+- If Planner was skipped (bug fix, single-file DB tweak), pick it yourself from the
+  same keyword rules Planner uses: `trivial` for one-line/typo fixes, `normal` as
+  the default, `security`/`performance`/`architecture` if the task clearly matches
+  those keyword sets (see `review_policy.yaml` for the exact lists).
+- Pass the chosen policy to Reviewer so it knows which passes to run. Aggregate
+  results from all passes before deciding Approve/Reject — any single pass's
+  REJECT blocks the change.
+- Tie-break: if a pass comes back with `Confidence: low`, you may ask one additional
+  model a single focused question ("given this diff and these notes, who is right?")
+  using a third profile distinct from CODING and REVIEW — this is not a full extra
+  review pass, just a one-shot tie-break. Use sparingly; it still costs a model call.
+
 ## Rules
 - Never skip Reviewer for tasks where code was changed.
 - Never trigger the full agent list "just in case" — only the agents required by

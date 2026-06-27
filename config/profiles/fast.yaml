@@ -1,0 +1,4 @@
+# FAST profile
+description: "Quick, light tasks: intent classification, routing, short edits"
+primary:  { provider: openrouter, model: "qwen/qwen3-14b:free" }
+fallback: { provider: ollama_cloud, model: "qwen3:8b" }
