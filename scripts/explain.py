@@ -22,12 +22,21 @@ def kw_match(task_l: str, kw: str) -> bool:
 
 
 def match(task: str):
+    """Return [(name, matched_keywords, pipeline), ...] sorted by route
+    priority (highest first). Caller picks the first one or asks the
+    user when several stack routes tie — never unions pipelines.
+    """
     task_l = task.lower()
     hits = []
     for name, r in routing.items():
         matched_kw = [k for k in r["keywords"] if kw_match(task_l, k)]
         if matched_kw:
-            hits.append((name, matched_kw, r["pipeline"]))
+            hits.append((name, matched_kw, r["pipeline"],
+                        r.get("priority", 0)))
+    # ponytail: highest priority wins; YAML order breaks ties. Single
+    # match for one task — never union pipelines (that produced nonsense
+    # like rust-dev + php-dev when both 'cargo' and 'build' matched).
+    hits.sort(key=lambda h: -h[3])
     return hits
 
 
@@ -66,11 +75,22 @@ def main():
         print("No route matched. Default: orchestrator asks user.")
         return
 
-    pipeline = []
-    for name, kws, ppl in hits:
-        print(f"  matched route '{name}': keywords {kws}")
-        pipeline.extend(ppl)
-    pipeline = list(dict.fromkeys(pipeline))
+    # ponytail: one task = one route. Highest priority wins. If multiple
+    # stack routes tie (e.g. "go" and "php" both match with priority 10),
+    # surface the tie to the user instead of guessing.
+    best = hits[0]
+    name, kws, ppl, prio = best
+    print(f"  matched route '{name}': keywords {kws} (priority {prio})")
+
+    # Detect a real tie: same priority on top, more than one route at it
+    tied = [h for h in hits if h[3] == prio]
+    if len(tied) > 1:
+        tied_names = [h[0] for h in tied]
+        print(f"  TIE: routes {tied_names} all at priority {prio}.")
+        print(f"  Cannot disambiguate. Orchestrator asks user to pick.")
+        return
+
+    pipeline = ppl
     print()
     print(f"Pipeline: {' -> '.join(pipeline)}")
     for step in pipeline:

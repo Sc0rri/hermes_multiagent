@@ -1,8 +1,9 @@
-# fullstack-php-go
+# fullstack-php-go-rust
 
-Hermes Agent profile distribution for PHP/Yii2/Laravel and Go projects.
+Hermes Agent profile distribution for PHP (Yii2, Laravel, OpenCart 2.x),
+Go, and Rust (incl. Cloudflare Workers wasm) projects.
 
-11 profiles, each with its own skill + model + toolset + `.env`. You only
+12 profiles, each with its own skill + model + toolset + `.env`. You only
 ever invoke the orchestrator; it dispatches to sub-profiles via the
 `terminal` tool.
 
@@ -50,6 +51,7 @@ extras:
 |----------------|------------------------------------------|
 | `php-dev`      | `laravel-specialist`, `redis-development`, `tdd`, `sysdebug`, `req-review` |
 | `go-dev`       | `golang-patterns`, `golang-testing`, `redis-development`, `tdd`, `sysdebug`, `req-review` |
+| `rust-dev`     | `rust-best-practices` (Apollo handbook, 9 chapters), `tdd` |
 | `database-dev` | `redis-development`, `tdd`, `sysdebug`, `explain-patterns` |
 | `devops-dev`   | `tdd`, `docker-nginx-patterns` |
 | `reviewer`     | `sysdebug` |

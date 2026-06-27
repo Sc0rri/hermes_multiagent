@@ -10,7 +10,7 @@ HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG_DIR="$REPO_ROOT/config"
 
-PROFILES=(orchestrator planner researcher php-dev go-dev database-dev devops-dev docs-dev reviewer auditor)
+PROFILES=(orchestrator planner researcher php-dev go-dev rust-dev database-dev devops-dev docs-dev reviewer auditor)
 
 # ponytail: per-role SOUL.md (3-4 lines each). Routing rules live in
 # config/routing.yaml + capabilities.yaml — SOUL just declares what the
@@ -21,6 +21,7 @@ declare -A SOUL=(
   [researcher]="You look up library docs and version notes. Compact report, sources cited."
   [php-dev]="You write PHP code (Yii2/Laravel). PSR-12, layered. Return a diff, no commentary."
   [go-dev]="You write Go code (fiber/gin/gRPC). Idiomatic, errgroup, table-driven tests. Return a diff."
+  [rust-dev]="You write Rust code (tokio, axum, Cloudflare Workers wasm). Idiomatic ownership, Result over panic, clippy-clean. Return a diff."
   [database-dev]="You design schema, migrations, queries. Reversible migrations, indexed where justified. Return SQL."
   [devops-dev]="You edit Docker/nginx/systemd/CI. No secrets in code. Destructive ops require user confirmation."
   [docs-dev]="You write README/CHANGELOG/docblocks to match the current diff. No marketing tone."
@@ -37,6 +38,7 @@ declare -A DISABLED=(
   [researcher]="image_gen video video_gen homeassistant spotify yuanbao computer_use code_execution delegation cronjob"
   [php-dev]="image_gen tts video video_gen homeassistant spotify yuanbao computer_use delegation cronjob"
   [go-dev]="image_gen tts video video_gen homeassistant spotify yuanbao computer_use delegation cronjob"
+  [rust-dev]="image_gen tts video video_gen homeassistant spotify yuanbao computer_use delegation cronjob"
   [database-dev]="image_gen tts video video_gen homeassistant spotify yuanbao computer_use delegation cronjob"
   [devops-dev]="image_gen tts video video_gen homeassistant spotify yuanbao computer_use delegation cronjob"
   [docs-dev]="tts video video_gen homeassistant spotify yuanbao computer_use delegation cronjob browser image_gen"

@@ -1,40 +1,56 @@
 # Routing — task shape → pipeline of profiles.
 # Each entry: trigger keywords (lowercased, any-match) → ordered list of profiles.
+# `priority` (optional, default 0): higher = wins on multi-match. Used so
+# cross-cutting routes (research/auditor/docs) beat stack-specific ones
+# when both match (e.g. "latest Yii2 version" — research, not php).
 
 routes:
 
   # Code work
   php:
-    keywords: [php, yii2, laravel, composer, blade, twig, eloquent]
+    keywords: [php, yii2, laravel, composer, blade, twig, eloquent, opencart, vqmod]
     pipeline: [php-dev, reviewer]
+    priority: 10
 
   go:
     keywords: [go, golang, fiber, gin, grpc, goroutine, errgroup]
     pipeline: [go-dev, reviewer]
+    priority: 10
+
+  rust:
+    keywords: [rust, cargo, rustc, tokio, wasm, cdylib, serde, ownership, borrow]
+    pipeline: [rust-dev, reviewer]
+    priority: 10
 
   database:
     keywords: [schema, migration, query, index, sql, mysql, postgres, sqlite]
     pipeline: [database-dev, reviewer]
+    priority: 10
 
   devops:
     keywords: [docker, nginx, systemd, ci, deploy, ansible, k8s, helm]
     pipeline: [devops-dev, reviewer]
+    priority: 10
 
   # Documentation
   docs:
     keywords: [readme, changelog, docblock, api docs, docs only]
     pipeline: [docs-dev]
+    priority: 5
 
   auditor:
     keywords: [check, audit, review code, naming, lint, consistency, correctness, verify]
     pipeline: [auditor]
+    priority: 5
 
   # Research & planning
   research:
     keywords: [what is, latest version, library, package, framework version]
     pipeline: [researcher]
+    priority: 20
 
   new_feature:
     keywords: [add feature, implement, build, new service, refactor across]
     pipeline: [planner, php-dev, reviewer]   # planner decides stack at runtime
     planner_decides_stack: true
+    priority: 0

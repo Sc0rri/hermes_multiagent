@@ -22,6 +22,10 @@ profiles:
     languages: [go]
     frameworks: [fiber, gin, grpc]
     tools: [gopls]
+  rust-dev:
+    languages: [rust]
+    frameworks: [tokio, worker, actix, axum]
+    tools: [cargo, rustc, clippy, rustfmt]
 
   database-dev:
     databases: [mysql, postgres, sqlite]

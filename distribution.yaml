@@ -1,6 +1,6 @@
-name: fullstack-php-go
-version: 0.3.0
-description: "Full-stack dev pack (PHP/Yii2/Laravel, Go). Orchestrator profile dispatches to sub-profiles via terminal."
+name: fullstack-php-go-rust
+version: 0.18.0
+description: "Full-stack dev pack (PHP/Yii2/Laravel/OpenCart 2.x, Go, Rust). Orchestrator profile dispatches to sub-profiles via terminal."
 hermes_requires: ">=0.16.0"
 author: "Sc0rri"
 license: MIT

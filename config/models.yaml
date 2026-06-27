@@ -25,6 +25,10 @@ profiles:
     primary: qwen3-coder:480b
     fallback: devstral-small-2:24b
 
+
+  rust-dev:
+    primary: qwen3-coder:480b
+    fallback: devstral-small-2:24b
   database-dev:
     primary: qwen3-coder:480b
     fallback: devstral-small-2:24b
