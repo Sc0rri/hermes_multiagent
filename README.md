@@ -1,8 +1,17 @@
 # fullstack-php-go — Hermes profile distribution
 
-Multi-profile dev pack for PHP/Yii2/Laravel and Go projects. Built for
-[Hermes Agent](https://hermes-agent.nousresearch.com/) ≥0.16 with
-OpenRouter free tier + Ollama Cloud (optional).
+Multi-profile dev pack for PHP/Yii2/Laravel and Go. Hermes ≥0.16.
+
+## How it works
+
+One **orchestrator** profile reads your task, picks the right sub-profile,
+and dispatches it via `hermes -p <profile> chat -q ...`. Sub-profiles
+(`php-dev`, `go-dev`, `database-dev`, `devops-dev`, `docs-dev`,
+`researcher`, `planner`, `reviewer`) each have their own skill loaded and
+do the actual work. Coding profiles also load the shared `_ponytail`
+discipline skill.
+
+You only ever invoke the orchestrator. It routes for you.
 
 ## Install
 
@@ -10,100 +19,58 @@ OpenRouter free tier + Ollama Cloud (optional).
 # from a clone
 bash scripts/install.sh
 
-# or directly from the repo (requires git)
+# or one-shot from the repo
 hermes profile install https://github.com/Sc0rri/hermes_multiagent
 ```
 
-`install.sh` creates one Hermes profile per role, each pinned to a default
-model and preloaded with its own skill. Run it again after `git pull` —
-it's idempotent.
+Idempotent — run again after `git pull`.
 
-## Profiles
-
-| Profile       | Default model                                  | Role                              |
-|---------------|------------------------------------------------|-----------------------------------|
-| `orchestrator`| qwen3-14b:free                                 | classify + dispatch (router)      |
-| `planner`     | qwen3-14b:free                                 | decompose features into steps     |
-| `researcher`  | qwen3-14b:free                                 | library / version lookup          |
-| `php-dev`     | deepseek-chat-v3.1:free                        | write PHP/Yii2/Laravel code       |
-| `go-dev`      | deepseek-chat-v3.1:free                        | write Go code                     |
-| `database-dev`| deepseek-chat-v3.1:free                        | schema, migrations, queries       |
-| `devops-dev`  | deepseek-chat-v3.1:free                        | Docker, nginx, systemd, CI        |
-| `docs-dev`    | qwen3-14b:free                                 | README, CHANGELOG, docblocks      |
-| `reviewer`    | gemma-3-27b-it:free                            | independent review (≠ coding)     |
-
-Override per-role model via env:
-```bash
-export HERMES_CODING_MODEL=openrouter/anthropic/claude-sonnet-4
-export HERMES_REVIEW_MODEL=openrouter/google/gemini-2.5-pro
-```
-
-## Run a task
+## Use
 
 ```bash
-# full pipeline: orchestrator classifies → dispatches → reviews
-bash scripts/orchestrate.sh "Add JWT authentication to the API"
+# via the orchestrator (recommended)
+hermes -p orchestrator chat
+# then in chat: "Fix the null pointer in LoginController on empty email"
 
-# direct: skip classification, you've already routed
-bash scripts/orchestrate.sh -p php-dev "Add a GET /api/users/{id} endpoint"
-
-# planner only (no execution)
-bash scripts/orchestrate.sh --plan "Split monolith into 3 services"
-
-# review an existing diff
-bash scripts/orchestrate.sh --review --diff /tmp/changes.diff
+# or jump straight to a sub-profile if you already know the stack
+hermes -p php-dev chat
+# then: "Add a GET /api/users/{id} endpoint"
 ```
 
-## Pipeline semantics
+The orchestrator uses `terminal` to spawn sub-profiles, so pipeline
+behaviour (planner → coder → reviewer) works automatically inside one
+chat session.
 
-1. **Classify** — orchestrator returns a JSON envelope:
-   `{task_summary, complexity, review_policy, pipeline, reasoning}`.
-2. **Dispatch** — each step in `pipeline[]` runs in order. Each step
-   receives the previous step's output verbatim.
-3. **Review** — every coding step ends in a `reviewer` pass. Reviewer
-   model is always ≠ coding model. Pass is chosen from policy:
-   `normal` → review; `security` → security; `performance` →
-   performance; `architecture` → architecture; `trivial` → review with
-   lighter scope.
+## Per-profile model
 
-Keyword rules (security wins if any match): auth, password, token, jwt,
-payment, crypto, raw SQL, secret, permission → `security`. slow, N+1,
-redis, cache, queue, goroutine, throughput, latency, index →
-`performance`. new service, refactor across modules, breaking change,
-major version → `architecture`. Multiple matches → pick the most
-expensive (architecture > security/performance > normal > trivial).
-
-## What's NOT here
-
-- **No Telegram bots.** This is a CLI pack. `hermes gateway` supports
-  Telegram separately if you want a chat interface — that's a Hermes
-  feature, not a profile.
-- **No per-agent AGENTS.md.** Hermes reads one `AGENTS.md` per project.
-  Profile behaviour lives in `skills/<profile>/SKILL.md`, installed into
-  the profile's skill directory by `install.sh`.
-- **No separate logging DB.** `hermes` already writes everything to
-  `~/.hermes/state.db` and `~/.hermes/logs/`. Adding a parallel
-  `agent-logs.db` was a Telegram-era artifact; removed.
-- **No custom MCP servers in this repo.** Use `hermes mcp add` for
-  Filesystem/Git MCP — that's the recommended path.
-
-## Smoke test
+Default profile model comes from your global Hermes config. Override
+per profile:
 
 ```bash
-bash scripts/smoke-test.sh
+hermes -p orchestrator config set model.default google/gemma-4-31b-it:free
+hermes -p php-dev      config set model.default qwen/qwen3-coder:free
+hermes -p reviewer     config set model.default google/gemma-4-31b-it:free
 ```
 
-Three scenarios: bug fix (php-dev → reviewer), auth feature (forces
-security pass), docs-only (no reviewer). All return descriptions, no
-project files are touched.
+Free-tier models 429 often. If a profile stops responding, swap to
+another free model. Check current free list at
+https://openrouter.ai/openrouter/free.
 
-## Architecture notes
+## Routing
 
-This pack went through one major restructure. The previous version
-shipped as `agents/<name>/` folders with `profile:` frontmatter keys and
-YAML policy files (`config/cost_policy.yaml`, `config/review_policy.yaml`,
-`config/capabilities.yaml`) that no Hermes runtime actually parsed. The
-Telegram-era artifacts (per-agent AGENTS.md, custom logging DB, hardcoded
-agent-name routing) are gone. The current shape matches what Hermes
-actually does: profiles for isolation, skills for behaviour, one
-orchestrator script for routing, free-tier defaults baked in.
+The orchestrator picks by keyword. Default routing:
+
+| Task shape                                | Profile(s)                              |
+|-------------------------------------------|-----------------------------------------|
+| PHP / Yii2 / Laravel code change          | `php-dev` → `reviewer`                  |
+| Go / fiber / gin / gRPC code change       | `go-dev` → `reviewer`                   |
+| docker / nginx / systemd / CI / deploy    | `devops-dev` → `reviewer`               |
+| Schema / migration / query / index        | `database-dev` → `reviewer`             |
+| README / CHANGELOG only                   | `docs-dev`                              |
+| New library / version lookup              | `researcher` → coding profile           |
+| Multi-step new feature across layers      | `planner` → coding → `reviewer`         |
+
+Reviewer policy (passed via `Pass:` line):
+auth / payment / crypto / raw SQL / secret → `security`. N+1 / redis /
+queue / goroutine / index → `performance`. New service / cross-module
+refactor / breaking change → `architecture`. Otherwise `review`.
