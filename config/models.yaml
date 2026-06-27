@@ -1,0 +1,50 @@
+# Models per profile. install.sh reads this and writes model.default +
+# fallback_model into each profile's config.yaml.
+# Order matters: first live provider wins. Free Ollama Cloud models first,
+# OpenRouter free as fallback.
+
+profiles:
+
+  orchestrator:
+    primary: ministral-3:14b
+    fallback: gemma3:4b
+
+  planner:
+    primary: ministral-3:14b
+    fallback: gemma3:4b
+
+  researcher:
+    primary: ministral-3:8b
+    fallback: gemma3:4b
+
+  php-dev:
+    primary: qwen3-coder:480b
+    fallback: devstral-small-2:24b
+
+  go-dev:
+    primary: qwen3-coder:480b
+    fallback: devstral-small-2:24b
+
+  database-dev:
+    primary: qwen3-coder:480b
+    fallback: devstral-small-2:24b
+
+  devops-dev:
+    primary: devstral-small-2:24b
+    fallback: qwen3-coder:480b
+
+  docs-dev:
+    primary: gemma3:4b
+    fallback: ministral-3:8b
+
+  reviewer:
+    primary: gpt-oss:120b
+    fallback: ministral-3:14b
+
+  auditor:
+    primary: ministral-3:14b
+    fallback: gemma3:4b
+
+  tiebreak:
+    primary: ministral-3:14b
+    fallback: gemma3:4b

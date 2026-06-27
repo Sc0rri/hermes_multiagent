@@ -1,0 +1,40 @@
+# Routing — task shape → pipeline of profiles.
+# Each entry: trigger keywords (lowercased, any-match) → ordered list of profiles.
+
+routes:
+
+  # Code work
+  php:
+    keywords: [php, yii2, laravel, composer, blade, twig, eloquent]
+    pipeline: [php-dev, reviewer]
+
+  go:
+    keywords: [go, golang, fiber, gin, grpc, goroutine, errgroup]
+    pipeline: [go-dev, reviewer]
+
+  database:
+    keywords: [schema, migration, query, index, sql, mysql, postgres, sqlite]
+    pipeline: [database-dev, reviewer]
+
+  devops:
+    keywords: [docker, nginx, systemd, ci, deploy, ansible, k8s, helm]
+    pipeline: [devops-dev, reviewer]
+
+  # Documentation
+  docs:
+    keywords: [readme, changelog, docblock, api docs, docs only]
+    pipeline: [docs-dev]
+
+  auditor:
+    keywords: [проверь, check, audit, review code, naming, lint, consistency, правильность, корректность]
+    pipeline: [auditor]
+
+  # Research & planning
+  research:
+    keywords: [what is, latest version, library, package, framework version]
+    pipeline: [researcher]
+
+  new_feature:
+    keywords: [add feature, implement, build, new service, refactor across]
+    pipeline: [planner, php-dev, reviewer]   # planner decides stack at runtime
+    planner_decides_stack: true

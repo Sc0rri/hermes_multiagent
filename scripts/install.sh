@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
-# install.sh — create the 9 profiles with no bundled skills, then install
-# each role's own skill + a short per-profile SOUL.md + toolset allowlist.
+# install.sh — read config/*.yaml, create 10 profiles (no bundled skills),
+# install each role's skill + per-profile SOUL.md + toolset allowlist +
+# per-profile .env + model fallback chain.
 # Idempotent. Run again after `git pull`.
 
 set -euo pipefail
 
 HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+CONFIG_DIR="$REPO_ROOT/config"
 
-PROFILES=(orchestrator planner researcher php-dev go-dev database-dev devops-dev docs-dev reviewer auditor)
+PROFILES=(orchestrator planner researcher php-dev go-dev database-dev devops-dev docs-dev reviewer auditor tiebreak)
 
-# ponytail: per-role SOUL.md (3-4 lines each). Routing rules live in the skill,
-# not here — SOUL just declares what the profile is.
+# ponytail: per-role SOUL.md (3-4 lines each). Routing rules live in
+# config/routing.yaml + capabilities.yaml — SOUL just declares what the
+# profile is, in plain text for the model to internalise quickly.
 declare -A SOUL=(
-  [orchestrator]="You are a router. Classify tasks, dispatch to sub-profiles via the terminal tool. Never write code."
-  [planner]="You decompose complex features into ordered steps. No code."
+  [orchestrator]="You are a router. Classify tasks by reading config/routing.yaml and config/capabilities.yaml, then dispatch to sub-profiles via the terminal tool. Never write code."
+  [planner]="You decompose complex features by reading config/cost-policy.yaml for budget and config/capabilities.yaml for stack routing. No code."
   [researcher]="You look up library docs and version notes. Compact report, sources cited."
   [php-dev]="You write PHP code (Yii2/Laravel). PSR-12, layered. Return a diff, no commentary."
   [go-dev]="You write Go code (fiber/gin/gRPC). Idiomatic, errgroup, table-driven tests. Return a diff."
@@ -23,28 +26,12 @@ declare -A SOUL=(
   [docs-dev]="You write README/CHANGELOG/docblocks to match the current diff. No marketing tone."
   [reviewer]="You review a diff on a single pass. Find bugs, layering violations, N+1, missing validation. Verdict + notes only."
   [auditor]="Read-only analysis: documentation, tests, naming. You report, you do not edit. No write_file, no patch."
-)
-
-# ponytail: free-tier model strategy via Ollama Cloud (no daily cap,
-# per-model per-minute rate only — way more headroom than OpenRouter free).
-# Ollama Cloud provider is built into Hermes (`hermes --provider ollama-cloud`).
-# Override per profile: hermes -p X config set model.default M.
-declare -A MODELS=(
-  [orchestrator]="ministral-3:14b"
-  [planner]="ministral-3:14b"
-  [researcher]="ministral-3:8b"
-  [php-dev]="qwen3-coder:480b"
-  [go-dev]="qwen3-coder:480b"
-  [database-dev]="qwen3-coder:480b"
-  [devops-dev]="devstral-small-2:24b"
-  [docs-dev]="gemma3:4b"
-  [reviewer]="gpt-oss:120b"
-  [auditor]="ministral-3:14b"
+  [tiebreak]="You are the tie-breaker. Reviewer flagged Confidence: low. Read the question in config/review-policy.yaml and answer it directly. One focused answer, no preamble."
 )
 
 # ponytail: per-profile disabled toolsets. Only what each role actually
 # needs stays enabled; everything else is disabled to keep the agent's
-# tool palette tight. Reviewer disables anything that mutates state.
+# tool palette tight. Orchestrator has NO file tools — must dispatch.
 declare -A DISABLED=(
   [orchestrator]="image_gen tts video video_gen homeassistant spotify yuanbao browser vision computer_use code_execution delegation cronjob clarify file search write_file patch"
   [planner]="image_gen tts video video_gen homeassistant spotify yuanbao browser computer_use code_execution delegation cronjob"
@@ -56,29 +43,60 @@ declare -A DISABLED=(
   [docs-dev]="tts video video_gen homeassistant spotify yuanbao computer_use delegation cronjob browser image_gen"
   [reviewer]="tts video video_gen image_gen homeassistant spotify yuanbao computer_use code_execution delegation cronjob browser"
   [auditor]="tts video video_gen image_gen homeassistant spotify yuanbao computer_use code_execution delegation cronjob browser write_file patch"
+  [tiebreak]="image_gen tts video video_gen homeassistant spotify yuanbao browser vision computer_use code_execution delegation cronjob clarify file search write_file patch cronjob"
 )
+
+# ponytail: source of truth is config/models.yaml. Read once, parse with
+# python (yaml module is in stdlib-friendly; we use it for all config).
+parse_models() {
+  python3 -c "
+import yaml
+d = yaml.safe_load(open('$CONFIG_DIR/models.yaml'))
+for name, m in d['profiles'].items():
+    print(f'{name}|{m[\"primary\"]}|{m.get(\"fallback\",\"\")}')"
+}
 
 for profile in "${PROFILES[@]}"; do
   if ! hermes profile list 2>/dev/null | grep -q "^[[:space:]]*$profile\b"; then
     hermes profile create "$profile" --no-skills --no-alias >/dev/null
   fi
 
-  hermes -p "$profile" config set model.default "${MODELS[$profile]}" 2>/dev/null
-  hermes -p "$profile" config set model.provider ollama-cloud 2>/dev/null
+  # Read primary + fallback from models.yaml
+  while IFS='|' read -r name primary fallback; do
+    [[ "$name" != "$profile" ]] && continue
+    hermes -p "$profile" config set model.default "$primary" 2>/dev/null
+    hermes -p "$profile" config set model.provider ollama-cloud 2>/dev/null
+    # ponytail: fallback as a separate model. Hermes tries fallback on
+    # 429/5xx from primary. Same provider, different model.
+    if [[ -n "$fallback" ]]; then
+      python3 -c "
+import yaml
+p = '$HERMES_HOME/profiles/$profile/config.yaml'
+with open(p) as f: cfg = yaml.safe_load(f) or {}
+cfg.setdefault('model', {})['fallback_model'] = '$fallback'
+with open(p, 'w') as f: yaml.safe_dump(cfg, f, sort_keys=False, default_flow_style=False)
+"
+    fi
+  done < <(parse_models)
 
-  # ponytail: disabled_toolsets must be a real YAML list, not a string.
-  # `hermes config set` stringifies JSON-list args, so write via python+yaml.
+  # ponytail: disabled_toolsets via python+yaml — config set stringifies
+  # JSON lists, so YAML edit is the only path that produces a real list.
   python3 -c "
 import yaml
 p = '$HERMES_HOME/profiles/$profile/config.yaml'
 with open(p) as f: cfg = yaml.safe_load(f) or {}
 cfg.setdefault('agent', {})['disabled_toolsets'] = '${DISABLED[$profile]}'.split()
 with open(p, 'w') as f: yaml.safe_dump(cfg, f, sort_keys=False, default_flow_style=False)
-" || { echo "  ! failed to set disabled_toolsets for $profile (python3 + pyyaml required)"; }
+" || echo "  ! failed to set disabled_toolsets for $profile"
 
   printf '%s\n' "${SOUL[$profile]}" > "$HERMES_HOME/profiles/$profile/SOUL.md"
 
-  # ponytail: only this profile's skill + _ponytail for code-writers.
+  # ponytail: copy config/ into profile's home so the model can read it.
+  # (Hermes profile doesn't auto-mount the repo's config/.)
+  mkdir -p "$HERMES_HOME/profiles/$profile/config"
+  cp "$CONFIG_DIR"/*.yaml "$HERMES_HOME/profiles/$profile/config/" 2>/dev/null || true
+
+  # only this profile's skill + _ponytail for code-writers
   dst="$HERMES_HOME/profiles/$profile/skills/$profile"
   mkdir -p "$dst"
   [[ -f "$REPO_ROOT/skills/$profile/SKILL.md" ]] && \
@@ -90,31 +108,32 @@ with open(p, 'w') as f: yaml.safe_dump(cfg, f, sort_keys=False, default_flow_sty
     cp "$REPO_ROOT/skills/_ponytail/SKILL.md" "$pdst/SKILL.md"
   fi
 
-  # ponytail: write per-profile .env so the model has keys without inheriting
-  # shell env. Hermes reads ~/.hermes/profiles/<name>/.env and overrides the
-  # shell. Source keys from ~/.hermes/.env (user's global config).
+  # ponytail: per-profile .env so child processes spawned from TUI have
+  # keys without inheriting shell env (which TUI often has empty).
   env_file="$HERMES_HOME/profiles/$profile/.env"
   {
     echo "# Auto-generated by fullstack-php-go/scripts/install.sh"
     echo "# Per-profile secrets override the shell environment."
     echo
     if [[ -f "$HERMES_HOME/.env" ]]; then
-      # ponytail: only secret vars (API_KEY), skip behavioural settings.
       grep -E '^[A-Z_]+_API_KEY=' "$HERMES_HOME/.env" || true
     fi
   } > "$env_file"
   chmod 600 "$env_file"
 
-  # ponytail: clear inherited auth.json — pointing at env vars that the
-  # child process won't see caused 401s. Per-profile .env is the right path.
+  # ponytail: drop inherited auth.json — it pointed at env vars that
+  # child processes don't see (caused HTTP 401 in hermes-desktop TUI).
   rm -f "$HERMES_HOME/profiles/$profile/auth.json"
 done
 
 cat <<EOF
->>> 9 profiles installed.
+>>> 10 profiles installed.
 
-Free-tier 429s often. Swap a model:
-  hermes -p <profile> config set model.default <model>
+Routing/capability/policy in: config/*.yaml (also copied to each
+profile's home so the model can read them directly).
+
+Models: primary + fallback from config/models.yaml.
+Free-tier 429s? Swap: hermes -p <profile> config set model.default M
 Or set HERMES_<ROLE>_MODEL env var.
 
 Use:  hermes -p orchestrator chat

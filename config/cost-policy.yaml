@@ -1,0 +1,16 @@
+# Cost budget — how many LLM calls per task complexity.
+# Used by Planner to decide whether to run Researcher, Security pass, etc.
+
+complexity:
+
+  low:
+    description: single-file fix, typo
+    max_calls: 2      # developer + reviewer
+
+  medium:
+    description: ordinary feature/bugfix, 1-3 files
+    max_calls: 3      # + research if needed
+
+  high:
+    description: multi-file, unfamiliar library, security/arch keyword match
+    max_calls: 5      # + researcher + extra review passes

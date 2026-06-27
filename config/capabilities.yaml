@@ -1,0 +1,43 @@
+# Capability registry — one place to look up "who handles X".
+# Add a new profile (e.g. symfony-dev) by adding an entry here. Routing and
+# planner skills read this, they don't hardcode profile names.
+
+profiles:
+
+  php-dev:
+    languages: [php]
+    frameworks: [yii2, laravel]
+    tools: [composer]
+
+  go-dev:
+    languages: [go]
+    frameworks: [fiber, gin, grpc]
+    tools: [gopls]
+
+  database-dev:
+    databases: [mysql, postgres, sqlite]
+    focus: schema
+
+  devops-dev:
+    frameworks: [docker, nginx, systemd]
+    tools: [ansible]
+
+  docs-dev:
+    artifacts: [readme, changelog, docblock]
+
+  auditor:
+    mode: read-only
+    artifacts: [docs, tests, naming]
+
+  reviewer:
+    languages: [php, go, sql, bash, yaml]
+    mode: review
+
+  researcher:
+    web: true
+
+  planner:
+    role: decompose
+
+  orchestrator:
+    role: dispatch

@@ -1,0 +1,9 @@
+# Context budget — cap on what gets assembled before any LLM call.
+# Caps, not targets. If you need more, decompose via Planner.
+
+context:
+  max_files: 12
+  max_tokens: 18000
+  prefer_ponytail: true
+  prefer_git_history: true
+  prefer_symbol_search: true
