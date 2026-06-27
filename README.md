@@ -44,18 +44,24 @@ sub-profiles.
 
 ## Per-profile model
 
-Default profile model comes from your global Hermes config. Override
-per profile:
+Profiles default to **Ollama Cloud** (no daily cap, per-model rate only).
+Available models tested 2026-06: `gemma3:4b`, `ministral-3:{3b,8b,14b}`,
+`devstral-small-2:24b`, `qwen3-coder:480b`, `gpt-oss:120b`.
 
+Override per profile:
 ```bash
-hermes -p orchestrator config set model.default google/gemma-4-31b-it:free
-hermes -p php-dev      config set model.default qwen/qwen3-coder:free
-hermes -p reviewer     config set model.default google/gemma-4-31b-it:free
+hermes -p orchestrator config set model.default ministral-3:14b
+hermes -p php-dev      config set model.default qwen3-coder:480b
+hermes -p reviewer     config set model.default gpt-oss:120b
 ```
 
-Free-tier models 429 often. If a profile stops responding, swap to
-another free model. Check current free list at
-https://openrouter.ai/openrouter/free.
+Switch to OpenRouter if you prefer (less headroom, daily cap):
+```bash
+hermes -p <profile> config set model.provider openrouter
+hermes -p <profile> config set model.default qwen/qwen3-coder:free
+```
+
+List live Ollama Cloud models: `curl -H "Authorization: Bearer $OLLAMA_API_KEY" https://ollama.com/api/tags`.
 
 ## Routing
 
