@@ -19,6 +19,12 @@ for profile in "${PROFILES[@]}"; do
     hermes profile create "$profile" >/dev/null
   fi
 
+  # ponytail: opt out of bundled skills — 72 default skills (apple, mlops,
+  # github, productivity, …) drown out the role-specific one and make the
+  # model pick the wrong tool. Only the role's own skill should be active.
+  # `--remove` deletes the bundled copies already seeded into this profile.
+  hermes -p "$profile" skills opt-out --remove --yes >/dev/null 2>&1 || true
+
   src="$REPO_ROOT/skills/$profile/SKILL.md"
   if [[ -f "$src" ]]; then
     dst="$HERMES_HOME/profiles/$profile/skills/$profile"
@@ -41,6 +47,14 @@ for profile in "${PROFILES[@]}"; do
   fi
 done
 
-echo ">>> 9 profiles installed. Use with:"
+# ponytail: also wipe the global skills/ dir of any leftover skills with
+# the same names — otherwise hermes loads BOTH the global one and the
+# profile-specific one, and they contradict each other.
+for s in orchestrator planner researcher php-dev go-dev database-dev \
+         devops-dev docs-dev reviewer; do
+  rm -rf "$HERMES_HOME/skills/$s"
+done
+
+echo ">>> 9 profiles installed (bundled skills opted out, role-only)."
 echo "    hermes -p orchestrator chat"
-echo "    (or pick a sub-profile directly: hermes -p php-dev chat)"
+echo "    (or jump to a sub-profile: hermes -p php-dev chat)"

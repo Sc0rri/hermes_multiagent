@@ -28,18 +28,19 @@ Idempotent — run again after `git pull`.
 ## Use
 
 ```bash
-# via the orchestrator (recommended)
 hermes -p orchestrator chat
-# then in chat: "Fix the null pointer in LoginController on empty email"
-
-# or jump straight to a sub-profile if you already know the stack
-hermes -p php-dev chat
-# then: "Add a GET /api/users/{id} endpoint"
+# then: "Fix the null pointer in LoginController on empty email"
 ```
 
 The orchestrator uses `terminal` to spawn sub-profiles, so pipeline
 behaviour (planner → coder → reviewer) works automatically inside one
 chat session.
+
+`install.sh` opts every profile out of bundled skills so only the
+role-specific SKILL.md is loaded — without this, hermes would load 70+
+default skills (apple notes, mlops, github, productivity, …) and the
+orchestrator would route to one of them instead of dispatching to your
+sub-profiles.
 
 ## Per-profile model
 
