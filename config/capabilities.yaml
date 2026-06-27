@@ -4,9 +4,6 @@
 
 profiles:
 
-  tiebreak:
-    role: resolve-confidence-low
-
   orchestrator:
     role: dispatch
 

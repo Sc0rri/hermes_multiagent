@@ -10,7 +10,7 @@ HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG_DIR="$REPO_ROOT/config"
 
-PROFILES=(orchestrator planner researcher php-dev go-dev database-dev devops-dev docs-dev reviewer auditor tiebreak)
+PROFILES=(orchestrator planner researcher php-dev go-dev database-dev devops-dev docs-dev reviewer auditor)
 
 # ponytail: per-role SOUL.md (3-4 lines each). Routing rules live in
 # config/routing.yaml + capabilities.yaml — SOUL just declares what the
@@ -26,7 +26,6 @@ declare -A SOUL=(
   [docs-dev]="You write README/CHANGELOG/docblocks to match the current diff. No marketing tone."
   [reviewer]="You review a diff on a single pass. Find bugs, layering violations, N+1, missing validation. Verdict + notes only."
   [auditor]="Read-only analysis: documentation, tests, naming. You report, you do not edit. No write_file, no patch."
-  [tiebreak]="You are the tie-breaker. Reviewer flagged Confidence: low. Read the question in config/review-policy.yaml and answer it directly. One focused answer, no preamble."
 )
 
 # ponytail: per-profile disabled toolsets. Only what each role actually
@@ -43,7 +42,6 @@ declare -A DISABLED=(
   [docs-dev]="tts video video_gen homeassistant spotify yuanbao computer_use delegation cronjob browser image_gen"
   [reviewer]="tts video video_gen image_gen homeassistant spotify yuanbao computer_use code_execution delegation cronjob browser"
   [auditor]="tts video video_gen image_gen homeassistant spotify yuanbao computer_use code_execution delegation cronjob browser write_file patch"
-  [tiebreak]="image_gen tts video video_gen homeassistant spotify yuanbao browser vision computer_use code_execution delegation cronjob clarify file search write_file patch cronjob"
 )
 
 # ponytail: source of truth is config/models.yaml. Read once, parse with
@@ -101,7 +99,10 @@ with open(p, 'w') as f: yaml.safe_dump(cfg, f, sort_keys=False, default_flow_sty
   # extras (php-pro, golang-patterns, tdd, etc.) live at
   # skills/<profile>/<skill-name>/SKILL.md. Plus _ponytail for coders.
   mkdir -p "$HERMES_HOME/profiles/$profile/skills"
-  # role skill at top level
+  # ponytail: clear stale skills from previous installs — if repo no
+  # longer ships a skill, drop it from the profile too.
+  rm -rf "$HERMES_HOME/profiles/$profile/skills"/* 2>/dev/null || true
+  mkdir -p "$HERMES_HOME/profiles/$profile/skills"
   if [[ -f "$REPO_ROOT/skills/$profile/SKILL.md" ]]; then
     mkdir -p "$HERMES_HOME/profiles/$profile/skills/$profile"
     cp "$REPO_ROOT/skills/$profile/SKILL.md" \
@@ -114,7 +115,10 @@ with open(p, 'w') as f: yaml.safe_dump(cfg, f, sort_keys=False, default_flow_sty
     [[ "$skill_name" == "$profile" ]] && continue
     target="$HERMES_HOME/profiles/$profile/skills/$skill_name"
     mkdir -p "$target"
-    [[ -f "$skill_dir/SKILL.md" ]] && cp "$skill_dir/SKILL.md" "$target/SKILL.md"
+    # ponytail: copy everything in the skill dir (SKILL.md + references/ + assets/),
+    # but skip files we already rm'd in the loop above (no-op safety).
+    (cd "$skill_dir" && cp -R . "$target/" 2>/dev/null) || \
+      cp "$skill_dir/SKILL.md" "$target/SKILL.md"
   done
 
   # ponytail: per-profile .env so child processes spawned from TUI have

@@ -45,6 +45,3 @@ profiles:
     primary: ministral-3:14b
     fallback: gemma3:4b
 
-  tiebreak:
-    primary: ministral-3:14b
-    fallback: gemma3:4b

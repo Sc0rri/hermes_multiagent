@@ -33,15 +33,3 @@ Notes:
 1. [critical|important|minor] <file:line/function> — <one line>
 2. ...
 ```
-
-## Tie-break (mandatory, not optional)
-
-If you return **`Confidence: low`** on any pass, the orchestrator MUST
-ask the `tiebreak` profile a single focused question per
-`config/review-policy.yaml` → `tie_break.question_template`. This is
-not a full extra review pass — one question, one model, then proceed.
-Skipping the tie-break leaves the dispute unresolved.
-
-If a pass's `REJECT` is firm (`Confidence: high|medium`), the executor
-gets all REJECT notes from all passes at once and is sent back. Max 3
-cycles (see `policies.*.max_cycles`), then escalate to user.

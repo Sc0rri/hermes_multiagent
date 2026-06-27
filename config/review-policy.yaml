@@ -31,16 +31,3 @@ policies:
     passes: [review, security, architecture]
     keywords: [new service, refactor across, breaking change, major version]
     max_cycles: 3
-
-# Tie-break: if a pass returns Confidence: low, the orchestrator MUST ask a
-# third model a single focused question (not a full pass). This is not
-# optional — "may trigger" in v0.8 became "must trigger" in v0.9.
-tie_break:
-  enabled: true
-  trigger: confidence == low
-  profile: tiebreak
-  question_template: |
-    Given this diff and these two notes, who is right?
-    Diff: {diff}
-    Notes A (executor): {notes_a}
-    Notes B (reviewer): {notes_b}

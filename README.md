@@ -41,7 +41,6 @@ picks the right pipeline, and runs each step via
 | `docs-dev`      | `gemma3:4b`              | most (incl. code_execution)       | README, CHANGELOG          |
 | `reviewer`      | `gpt-oss:120b`           | most (incl. code_execution)       | review diff                |
 | `auditor`       | `ministral-3:14b`        | most + write_file/patch           | read-only doc/test audit   |
-| `tiebreak`      | `ministral-3:14b`        | file, search, write_file, patch   | one-shot when confidence: low |
 
 Coding profiles (`*-dev`, `reviewer`) also load the shared
 `skills/_ponytail/SKILL.md` (lazy-senior discipline), plus role-specific
@@ -49,20 +48,25 @@ extras:
 
 | Profile        | Extras (in addition to role + _ponytail) |
 |----------------|------------------------------------------|
-| `php-dev`      | `php-pro`, `laravel-patterns`, `laravel-specialist`, `tdd`, `sysdebug`, `req-review` |
-| `go-dev`       | `golang-patterns`, `golang-testing`, `tdd`, `sysdebug`, `req-review` |
-| `database-dev` | `prisma-postgres`, `tdd`, `sysdebug` |
+| `php-dev`      | `laravel-specialist`, `redis-development`, `tdd`, `sysdebug`, `req-review` |
+| `go-dev`       | `golang-patterns`, `golang-testing`, `redis-development`, `tdd`, `sysdebug`, `req-review` |
+| `database-dev` | `redis-development`, `tdd`, `sysdebug` |
 | `devops-dev`   | `tdd` |
-| `reviewer`     | `best-practices`, `dogfood`, `req-review`, `sysdebug` |
-| `planner`      | `plan`, `spike` |
-| `researcher`   | (none — read-only docs are enough) |
+| `reviewer`     | `sysdebug` |
+| `planner`      | (none — role skill already covers planning) |
+| `researcher`   | (none) |
+| `auditor`      | (none) |
 
 Extras come from two sources:
 - **Bundled with Hermes** (`~/.hermes/skills/software-development/*`,
-  `dogfood`, `plan`, `spike`) — copied via `install.sh`.
+  `dogfood`, `plan`, `spike`) — copied via `install.sh`. Note: `dogfood`
+  is interactive browser QA, not diff review, so it's not used by
+  `reviewer` (which has browser disabled). `plan` and `spike` overlap
+  with the `planner` role, so dropped.
 - **[midudev/autoskills](https://github.com/midudev/autoskills) registry**
-  (`php-pro` by Jeffallan, `golang-patterns`, `laravel-patterns`, etc.)
-  — downloaded by `install.sh` from the upstream SKILL.md URLs.
+  (`laravel-specialist`, `golang-patterns`, `golang-testing`,
+  `redis-development`) — downloaded by `install.sh` from the upstream
+  SKILL.md URLs.
 
 Add a new extra: drop `SKILL.md` at `skills/<profile>/<skill-name>/SKILL.md`
 in this repo. `install.sh` will copy it into
@@ -99,8 +103,6 @@ Full keyword map in `config/routing.yaml`.
 
 `trivial` · `normal` (default) · `security` · `performance` · `architecture`.
 
-If a pass returns `Confidence: low`, the orchestrator **must** trigger a
-tie-break — one focused question to the `tiebreak` profile (see
 `config/review-policy.yaml::tie_break`). Not optional.
 
 ## Tooling (run before every commit)

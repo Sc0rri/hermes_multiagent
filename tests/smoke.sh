@@ -27,6 +27,8 @@ cases = [
     ("Check correctness of documentation and tests", "route:auditor"),
     ("What is the latest Yii2 version", "route:research"),
     ("Drop the old_sessions table", "ask"),                 # destructive, no stack cue
+    ("Add redis caching for user sessions", "ask"),          # no stack cue → orchestrator asks
+    ("Add Laravel redis caching for user sessions", "route:php"),  # both cues → php-dev
 ]
 
 ok = fail = 0
