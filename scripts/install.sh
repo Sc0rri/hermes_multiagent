@@ -8,7 +8,7 @@ set -euo pipefail
 HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-PROFILES=(orchestrator planner researcher php-dev go-dev database-dev devops-dev docs-dev reviewer)
+PROFILES=(orchestrator planner researcher php-dev go-dev database-dev devops-dev docs-dev reviewer auditor)
 
 # ponytail: per-role SOUL.md (3-4 lines each). Routing rules live in the skill,
 # not here — SOUL just declares what the profile is.
@@ -22,6 +22,7 @@ declare -A SOUL=(
   [devops-dev]="You edit Docker/nginx/systemd/CI. No secrets in code. Destructive ops require user confirmation."
   [docs-dev]="You write README/CHANGELOG/docblocks to match the current diff. No marketing tone."
   [reviewer]="You review a diff on a single pass. Find bugs, layering violations, N+1, missing validation. Verdict + notes only."
+  [auditor]="Read-only analysis: documentation, tests, naming. You report, you do not edit. No write_file, no patch."
 )
 
 # ponytail: free-tier model strategy via Ollama Cloud (no daily cap,
@@ -38,13 +39,14 @@ declare -A MODELS=(
   [devops-dev]="devstral-small-2:24b"
   [docs-dev]="gemma3:4b"
   [reviewer]="gpt-oss:120b"
+  [auditor]="ministral-3:14b"
 )
 
 # ponytail: per-profile disabled toolsets. Only what each role actually
 # needs stays enabled; everything else is disabled to keep the agent's
 # tool palette tight. Reviewer disables anything that mutates state.
 declare -A DISABLED=(
-  [orchestrator]="image_gen tts video video_gen homeassistant spotify yuanbao browser vision computer_use code_execution delegation cronjob clarify"
+  [orchestrator]="image_gen tts video video_gen homeassistant spotify yuanbao browser vision computer_use code_execution delegation cronjob clarify file search write_file patch"
   [planner]="image_gen tts video video_gen homeassistant spotify yuanbao browser computer_use code_execution delegation cronjob"
   [researcher]="image_gen video video_gen homeassistant spotify yuanbao computer_use code_execution delegation cronjob"
   [php-dev]="image_gen tts video video_gen homeassistant spotify yuanbao computer_use delegation cronjob"
@@ -53,6 +55,7 @@ declare -A DISABLED=(
   [devops-dev]="image_gen tts video video_gen homeassistant spotify yuanbao computer_use delegation cronjob"
   [docs-dev]="tts video video_gen homeassistant spotify yuanbao computer_use delegation cronjob browser image_gen"
   [reviewer]="tts video video_gen image_gen homeassistant spotify yuanbao computer_use code_execution delegation cronjob browser"
+  [auditor]="tts video video_gen image_gen homeassistant spotify yuanbao computer_use code_execution delegation cronjob browser write_file patch"
 )
 
 for profile in "${PROFILES[@]}"; do
