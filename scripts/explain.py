@@ -45,7 +45,8 @@ def pick_complexity(task: str) -> str:
     task_l = task.lower()
     sec = any(kw_match(task_l, k) for k in review["security"].get("keywords", []))
     arch = any(kw_match(task_l, k) for k in review["architecture"].get("keywords", []))
-    if sec or arch or kw_match(task_l, "refactor") or kw_match(task_l, "new service"):
+    perf = any(kw_match(task_l, k) for k in review["performance"].get("keywords", []))
+    if sec or arch or perf or kw_match(task_l, "refactor") or kw_match(task_l, "new service"):
         return "high"
     if any(kw_match(task_l, k) for k in ("add", "implement", "build")):
         return "medium"

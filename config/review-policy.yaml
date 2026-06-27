@@ -1,6 +1,7 @@
 # Review policies — what passes Reviewer runs.
 # Triggered by review_policy field from Planner/Orchestrator.
-# Each pass = one model profile (must differ from CODING).
+# All passes run on the `reviewer` profile (one model, see
+# config/models.yaml). Pass = focus area, not model swap.
 
 policies:
 

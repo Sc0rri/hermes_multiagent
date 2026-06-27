@@ -15,6 +15,9 @@ description: >
 3. Apply Ponytail (see `skills/_ponytail/SKILL.md`): does Docker/nginx/systemd
    already have a built-in for this? Does an existing config block already
    cover it?
+4. For Dockerfiles (PHP-FPM or Go) or nginx server blocks, read
+   `skills/devops-dev/docker-nginx-patterns/SKILL.md` first — it has the
+   layouts and the common mistakes. Don't reinvent.
 
 ## Hard rules
 

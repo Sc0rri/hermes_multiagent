@@ -5,7 +5,6 @@ Validates:
 - Every profile in capabilities.yaml exists in models.yaml (and vice versa).
 - Routing pipelines reference existing profiles.
 - Routing keywords are non-empty.
-- Review-policy.yaml tie_break.profile is declared.
 - Models have primary set.
 - Cost-policy complexity keys are valid.
 
@@ -42,18 +41,12 @@ for name, r in routing.items():
         if not str(kw).strip():
             errs.append(f"routing.yaml[{name}]: empty keyword")
 
-# 3. tie_break profile is declared
-if "tie_break" in policy:
-    tb = policy["tie_break"].get("profile", "")
-    if tb and tb not in caps:
-        errs.append(f"review-policy.yaml: tie_break.profile '{tb}' not declared")
-
-# 4. Models have primary
+# 3. Models have primary
 for p, m in models.items():
     if not m.get("primary"):
         errs.append(f"models.yaml[{p}]: no primary model")
 
-# 5. Cost policy keys
+# 4. Cost policy keys
 for k in cost:
     if k not in ("low", "medium", "high"):
         errs.append(f"cost-policy.yaml: unknown complexity '{k}'")

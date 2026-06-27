@@ -50,8 +50,8 @@ extras:
 |----------------|------------------------------------------|
 | `php-dev`      | `laravel-specialist`, `redis-development`, `tdd`, `sysdebug`, `req-review` |
 | `go-dev`       | `golang-patterns`, `golang-testing`, `redis-development`, `tdd`, `sysdebug`, `req-review` |
-| `database-dev` | `redis-development`, `tdd`, `sysdebug` |
-| `devops-dev`   | `tdd` |
+| `database-dev` | `redis-development`, `tdd`, `sysdebug`, `explain-patterns` |
+| `devops-dev`   | `tdd`, `docker-nginx-patterns` |
 | `reviewer`     | `sysdebug` |
 | `planner`      | (none — role skill already covers planning) |
 | `researcher`   | (none) |
@@ -122,13 +122,18 @@ pipeline, picked review policy, and cost-policy budget. No LLM call.
 
 ## Models
 
-Ollama Cloud primary, Ollama Cloud fallback per profile
-(`config/models.yaml`). OpenRouter keys also accepted.
+Ollama Cloud primary + fallback per profile
+(`config/models.yaml`). install.sh pins `model.provider=ollama-cloud`
+for every profile unconditionally — switching a single profile to
+OpenRouter is a manual per-profile override (no entry in `models.yaml`
+yet):
 
-Override:
 ```bash
-hermes -p <profile> config set model.default <model>
-hermes -p <profile> config set model.fallback_model <model>
+# switch the orchestrator to OpenRouter (free tier)
+hermes -p orchestrator config set model.provider openrouter
+hermes -p orchestrator config set model.default "google/gemma-4-31b-it:free"
+# check live models: curl https://openrouter.ai/openrouter/free
 ```
 
-Edit `config/models.yaml` and re-run `install.sh` to apply globally.
+Edit `config/models.yaml` and re-run `install.sh` to apply globally
+(Ollama Cloud only).

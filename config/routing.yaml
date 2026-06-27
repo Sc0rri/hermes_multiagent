@@ -26,7 +26,7 @@ routes:
     pipeline: [docs-dev]
 
   auditor:
-    keywords: [проверь, check, audit, review code, naming, lint, consistency, правильность, корректность]
+    keywords: [check, audit, review code, naming, lint, consistency, correctness, verify]
     pipeline: [auditor]
 
   # Research & planning

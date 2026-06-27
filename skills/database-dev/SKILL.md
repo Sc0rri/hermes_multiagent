@@ -20,8 +20,9 @@ description: >
 
 - Is this index/column actually needed for a real query in the diff? If not,
   skip it. Indexes have write cost — speculative indexes are slop.
-- Does an existing index already cover this query path? (Run `EXPLAIN` on
-  the actual query if unsure.)
+- Does an existing index already cover this query path? Read
+  `skills/database-dev/explain-patterns/SKILL.md` for what to look
+  for in `EXPLAIN ANALYZE` output (plan nodes, N+1, index picks).
 - One logical change per migration. Reversible (`up`/`down`).
 
 ## Hand-off
