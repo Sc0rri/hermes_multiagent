@@ -44,7 +44,29 @@ picks the right pipeline, and runs each step via
 | `tiebreak`      | `ministral-3:14b`        | file, search, write_file, patch   | one-shot when confidence: low |
 
 Coding profiles (`*-dev`, `reviewer`) also load the shared
-`skills/_ponytail/SKILL.md` (lazy-senior discipline).
+`skills/_ponytail/SKILL.md` (lazy-senior discipline), plus role-specific
+extras:
+
+| Profile        | Extras (in addition to role + _ponytail) |
+|----------------|------------------------------------------|
+| `php-dev`      | `php-pro`, `laravel-patterns`, `laravel-specialist`, `tdd`, `sysdebug`, `req-review` |
+| `go-dev`       | `golang-patterns`, `golang-testing`, `tdd`, `sysdebug`, `req-review` |
+| `database-dev` | `prisma-postgres`, `tdd`, `sysdebug` |
+| `devops-dev`   | `tdd` |
+| `reviewer`     | `best-practices`, `dogfood`, `req-review`, `sysdebug` |
+| `planner`      | `plan`, `spike` |
+| `researcher`   | (none — read-only docs are enough) |
+
+Extras come from two sources:
+- **Bundled with Hermes** (`~/.hermes/skills/software-development/*`,
+  `dogfood`, `plan`, `spike`) — copied via `install.sh`.
+- **[midudev/autoskills](https://github.com/midudev/autoskills) registry**
+  (`php-pro` by Jeffallan, `golang-patterns`, `laravel-patterns`, etc.)
+  — downloaded by `install.sh` from the upstream SKILL.md URLs.
+
+Add a new extra: drop `SKILL.md` at `skills/<profile>/<skill-name>/SKILL.md`
+in this repo. `install.sh` will copy it into
+`~/.hermes/profiles/<profile>/skills/<skill-name>/` next run.
 
 ## Config (single source of truth)
 

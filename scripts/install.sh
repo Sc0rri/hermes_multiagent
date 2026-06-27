@@ -96,17 +96,26 @@ with open(p, 'w') as f: yaml.safe_dump(cfg, f, sort_keys=False, default_flow_sty
   mkdir -p "$HERMES_HOME/profiles/$profile/config"
   cp "$CONFIG_DIR"/*.yaml "$HERMES_HOME/profiles/$profile/config/" 2>/dev/null || true
 
-  # only this profile's skill + _ponytail for code-writers
-  dst="$HERMES_HOME/profiles/$profile/skills/$profile"
-  mkdir -p "$dst"
-  [[ -f "$REPO_ROOT/skills/$profile/SKILL.md" ]] && \
-    cp "$REPO_ROOT/skills/$profile/SKILL.md" "$dst/SKILL.md"
-
-  if [[ "$profile" =~ -dev$ ]] || [[ "$profile" == "reviewer" ]]; then
-    pdst="$HERMES_HOME/profiles/$profile/skills/_ponytail"
-    mkdir -p "$pdst"
-    cp "$REPO_ROOT/skills/_ponytail/SKILL.md" "$pdst/SKILL.md"
+  # ponytail: copy every skill under skills/<profile>/ to the profile's
+  # skill dir. The "role skill" lives at skills/<profile>/SKILL.md;
+  # extras (php-pro, golang-patterns, tdd, etc.) live at
+  # skills/<profile>/<skill-name>/SKILL.md. Plus _ponytail for coders.
+  mkdir -p "$HERMES_HOME/profiles/$profile/skills"
+  # role skill at top level
+  if [[ -f "$REPO_ROOT/skills/$profile/SKILL.md" ]]; then
+    mkdir -p "$HERMES_HOME/profiles/$profile/skills/$profile"
+    cp "$REPO_ROOT/skills/$profile/SKILL.md" \
+       "$HERMES_HOME/profiles/$profile/skills/$profile/SKILL.md"
   fi
+  # extras: each subdir under skills/<profile>/
+  for skill_dir in "$REPO_ROOT/skills/$profile"/*/; do
+    [[ -d "$skill_dir" ]] || continue
+    skill_name="$(basename "$skill_dir")"
+    [[ "$skill_name" == "$profile" ]] && continue
+    target="$HERMES_HOME/profiles/$profile/skills/$skill_name"
+    mkdir -p "$target"
+    [[ -f "$skill_dir/SKILL.md" ]] && cp "$skill_dir/SKILL.md" "$target/SKILL.md"
+  done
 
   # ponytail: per-profile .env so child processes spawned from TUI have
   # keys without inheriting shell env (which TUI often has empty).
