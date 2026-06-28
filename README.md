@@ -61,11 +61,7 @@ extras:
 | `auditor`      | (none) |
 
 Extras come from two sources:
-- **Bundled with Hermes** (`~/.hermes/skills/software-development/*`,
-  `dogfood`, `plan`, `spike`) — copied via `install.sh`. Note: `dogfood`
-  is interactive browser QA, not diff review, so it's not used by
-  `reviewer` (which has browser disabled). `plan` and `spike` overlap
-  with the `planner` role, so dropped.
+- **Bundled with Hermes** (`~/.hermes/skills/software-development/*`) — copied via `install.sh`.
 - **[midudev/autoskills](https://github.com/midudev/autoskills) registry**
   (`laravel-specialist`, `golang-patterns`, `golang-testing`,
   `redis-development`) — downloaded by `install.sh` from the upstream
