@@ -3,7 +3,7 @@
 Hermes Agent profile distribution for PHP (Yii2, Laravel, OpenCart 2.x),
 Go, and Rust (incl. Cloudflare Workers wasm) projects.
 
-12 profiles, each with its own skill + model + toolset + `.env`. You only
+11 profiles, each with its own skill + model + toolset + `.env`. You only
 ever invoke the orchestrator; it dispatches to sub-profiles via the
 `terminal` tool.
 
@@ -37,6 +37,7 @@ picks the right pipeline, and runs each step via
 | `researcher`    | `ministral-3:8b`         | code_execution, terminal           | library/version lookup     |
 | `php-dev`       | `qwen3-coder:480b`       | image, tts, video, browser, ...   | write PHP                  |
 | `go-dev`        | `qwen3-coder:480b`       | same                               | write Go                   |
+| `rust-dev`      | `qwen3-coder:480b`       | same                               | write Rust (incl. wasm)    |
 | `database-dev`  | `qwen3-coder:480b`       | same                               | schema, migrations         |
 | `devops-dev`    | `devstral-small-2:24b`   | same                               | Docker, nginx, systemd     |
 | `docs-dev`      | `gemma3:4b`              | most (incl. code_execution)       | README, CHANGELOG          |
@@ -51,7 +52,7 @@ extras:
 |----------------|------------------------------------------|
 | `php-dev`      | `laravel-specialist`, `redis-development`, `tdd`, `sysdebug`, `req-review` |
 | `go-dev`       | `golang-patterns`, `golang-testing`, `redis-development`, `tdd`, `sysdebug`, `req-review` |
-| `rust-dev`     | `rust-best-practices` (Apollo handbook, 9 chapters), `tdd` |
+| `rust-dev`     | `rust-best-practices` (Apollo handbook, 9 chapters) |
 | `database-dev` | `redis-development`, `tdd`, `sysdebug`, `explain-patterns` |
 | `devops-dev`   | `tdd`, `docker-nginx-patterns` |
 | `reviewer`     | `sysdebug` |
@@ -80,7 +81,7 @@ in this repo. `install.sh` will copy it into
 config/
   capabilities.yaml    profile → languages/frameworks/databases
   routing.yaml         keyword → pipeline (list of profiles)
-  review-policy.yaml   policy → passes + tie_break rule
+  review-policy.yaml   policy → passes + max_cycles
   cost-policy.yaml     complexity → max LLM calls
   context-policy.yaml  max_files / max_tokens caps
   models.yaml          primary + fallback model per profile
@@ -93,11 +94,16 @@ who handles it.
 
 ## Routing (high-level)
 
-- Code work → matching `*-dev` → `reviewer`
+- Code work → matching `*-dev` (`php`, `go`, `rust`, `database`, `devops`) → `reviewer`
 - Read-only audit → `auditor`
 - Docs update → `docs-dev`
 - New library/version → `researcher`
 - Multi-layer feature → `planner` → coding → `reviewer`
+
+When a task matches more than one route's keywords (e.g. "latest Yii2
+version" matches both `research` and `php`), `priority` in
+`routing.yaml` decides — highest wins, a tie at the top priority falls
+back to "ask user" rather than silently unioning pipelines.
 
 Full keyword map in `config/routing.yaml`.
 
@@ -105,7 +111,10 @@ Full keyword map in `config/routing.yaml`.
 
 `trivial` · `normal` (default) · `security` · `performance` · `architecture`.
 
-`config/review-policy.yaml::tie_break`). Not optional.
+All passes run on the single `reviewer` profile/model — a different pass
+means a different focus area, not a different model. If a pass returns
+`Confidence: low`, Reviewer surfaces it as the first note for the human
+to resolve; it does not trigger another LLM call.
 
 ## Tooling (run before every commit)
 
@@ -115,9 +124,9 @@ python3 scripts/explain.py "your task"      # show pipeline without LLM
 bash scripts/validate-config.sh            # config consistency check
 ```
 
-`smoke.sh` runs `validate-config` and 7 canned-task routing cases
+`smoke.sh` runs `validate-config` and 13 canned-task routing cases —
 catches keyword over-matching (e.g. `gin` matching `Login`), missing
-routes, broken ties between capabilities/models/routing.
+routes, and broken ties between capabilities/models/routing.
 
 `explain.py <task>` prints which keywords matched, the resulting
 pipeline, picked review policy, and cost-policy budget. No LLM call.
