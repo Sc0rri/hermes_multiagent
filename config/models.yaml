@@ -1,51 +1,89 @@
 # Models per profile. install.sh reads this and writes model.default +
-# fallback_model into each profile's config.yaml.
-# Order matters: first live provider wins. Free Ollama Cloud models first,
-# OpenRouter free as fallback.
+# fallback chain into each profile's config.yaml.
+#
+# Chain order (Ponytail: chain survives, single fails fast):
+#   1. primary     — ollama-cloud, paid-by-session. Free, but 429 on session limit.
+#   2. fallbacks[] — exhausted in order when primary fails. List of dicts:
+#        { provider: <name>, model: <id>, base_url?: <only for custom> }
+#      Each tier uses a DIFFERENT provider, so quota exhaustion in one
+#      doesn't lock the others.
+#
+# Providers used:
+#   - ollama-cloud : Hermes built-in (model.provider field). Free tier.
+#   - openrouter   : Hermes built-in. FREE tier at https://openrouter.ai/openrouter/free
+#   - cline        : Hermes custom_providers (global config). API key = CLINE_API_KEY
+#                    in ~/.hermes/.env. Endpoint https://api.cline.bot/api/v1
+#                    Free models: deepseek/deepseek-v4-flash, stepfun/step-3.7-flash.
+#                    Cline pass/fail DOES NOT depend on Copilot subscription.
+#
+# To add another tier: append to fallbacks[].
+# To pin one profile to a single provider (e.g. switch coder to cline):
+#   change primary, leave fallbacks[] empty.
 
 profiles:
 
   orchestrator:
     primary: ministral-3:14b
-    fallback: gemma3:4b
+    fallbacks:
+      - {provider: openrouter, model: google/gemma-4-31b-it:free}
+      - {provider: cline, model: deepseek/deepseek-v4-flash}
 
   planner:
     primary: ministral-3:14b
-    fallback: gemma3:4b
+    fallbacks:
+      - {provider: openrouter, model: google/gemma-4-31b-it:free}
+      - {provider: cline, model: deepseek/deepseek-v4-flash}
 
   researcher:
     primary: ministral-3:8b
-    fallback: gemma3:4b
+    fallbacks:
+      - {provider: openrouter, model: google/gemma-4-31b-it:free}
+      - {provider: cline, model: stepfun/step-3.7-flash}
 
   php-dev:
     primary: qwen3-coder:480b
-    fallback: devstral-small-2:24b
+    fallbacks:
+      - {provider: openrouter, model: google/gemma-4-31b-it:free}
+      - {provider: cline, model: deepseek/deepseek-v4-flash}
 
   go-dev:
     primary: qwen3-coder:480b
-    fallback: devstral-small-2:24b
-
+    fallbacks:
+      - {provider: openrouter, model: google/gemma-4-31b-it:free}
+      - {provider: cline, model: deepseek/deepseek-v4-flash}
 
   rust-dev:
     primary: qwen3-coder:480b
-    fallback: devstral-small-2:24b
+    fallbacks:
+      - {provider: openrouter, model: google/gemma-4-31b-it:free}
+      - {provider: cline, model: deepseek/deepseek-v4-flash}
+
   database-dev:
     primary: qwen3-coder:480b
-    fallback: devstral-small-2:24b
+    fallbacks:
+      - {provider: openrouter, model: google/gemma-4-31b-it:free}
+      - {provider: cline, model: deepseek/deepseek-v4-flash}
 
   devops-dev:
     primary: devstral-small-2:24b
-    fallback: qwen3-coder:480b
+    fallbacks:
+      - {provider: openrouter, model: google/gemma-4-31b-it:free}
+      - {provider: cline, model: stepfun/step-3.7-flash}
 
   docs-dev:
     primary: gemma3:4b
-    fallback: ministral-3:8b
+    fallbacks:
+      - {provider: openrouter, model: google/gemma-4-31b-it:free}
+      - {provider: cline, model: stepfun/step-3.7-flash}
 
   reviewer:
     primary: gpt-oss:120b
-    fallback: ministral-3:14b
+    fallbacks:
+      - {provider: openrouter, model: google/gemma-4-31b-it:free}
+      - {provider: cline, model: deepseek/deepseek-v4-flash}
 
   auditor:
     primary: ministral-3:14b
-    fallback: gemma3:4b
-
+    fallbacks:
+      - {provider: openrouter, model: google/gemma-4-31b-it:free}
+      - {provider: cline, model: stepfun/step-3.7-flash}

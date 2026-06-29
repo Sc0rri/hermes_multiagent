@@ -3,7 +3,7 @@
 Hermes Agent profile distribution for PHP (Yii2, Laravel, OpenCart 2.x),
 Go, and Rust (incl. Cloudflare Workers wasm) projects.
 
-11 profiles, each with its own skill + model + toolset + `.env`. You only
+11 profiles, each with its own skill + model + 3-tier fallback chain + toolset + `.env`. You only
 ever invoke the orchestrator; it dispatches to sub-profiles via the
 `terminal` tool.
 
@@ -14,8 +14,11 @@ bash scripts/install.sh
 ```
 
 Idempotent. Reads `config/models.yaml` and writes per-profile
-`model.default` + `model.fallback_model`. Copies `config/*.yaml` into
-each profile's home so the model can read them directly.
+`model.default` + `fallback_model` (list of dicts forming the 3-tier
+chain: ollama-cloud → openrouter → cline). Copies `config/*.yaml` into
+each profile's home so the model can read them directly. Also
+registers the `cline` custom provider in the global
+`~/.hermes/config.yaml`.
 
 ## Use
 
@@ -50,7 +53,7 @@ extras:
 
 | Profile        | Extras (in addition to role + _ponytail) |
 |----------------|------------------------------------------|
-| `php-dev`      | `laravel-specialist`, `redis-development`, `tdd`, `sysdebug`, `req-review` |
+| `php-dev`      | `php-pro`, `redis-development`, `tdd`, `sysdebug`, `req-review` |
 | `go-dev`       | `golang-patterns`, `golang-testing`, `redis-development`, `tdd`, `sysdebug`, `req-review` |
 | `rust-dev`     | `rust-best-practices` (Apollo handbook, 9 chapters) |
 | `database-dev` | `redis-development`, `tdd`, `sysdebug`, `explain-patterns` |
@@ -60,12 +63,16 @@ extras:
 | `researcher`   | (none) |
 | `auditor`      | (none) |
 
-Extras come from two sources:
-- **Bundled with Hermes** (`~/.hermes/skills/software-development/*`) — copied via `install.sh`.
+Extras come from two sources — both are committed inside this repo,
+not fetched at install time:
+
+- **Bundled with Hermes** (`~/.hermes/skills/software-development/*`),
+  copied into `~/.hermes/profiles/<n>/skills/<skill>/` by `install.sh`.
 - **[midudev/autoskills](https://github.com/midudev/autoskills) registry**
-  (`laravel-specialist`, `golang-patterns`, `golang-testing`,
-  `redis-development`) — downloaded by `install.sh` from the upstream
-  SKILL.md URLs.
+  snapshots (`php-pro`, `golang-patterns`, `golang-testing`,
+  `redis-development`, `rust-best-practices`) — committed into
+  `skills/<profile>/<skill-name>/SKILL.md`. To upgrade one, drop the
+  newer `SKILL.md` over the existing path and re-run `install.sh`.
 
 Add a new extra: drop `SKILL.md` at `skills/<profile>/<skill-name>/SKILL.md`
 in this repo. `install.sh` will copy it into
@@ -129,18 +136,26 @@ pipeline, picked review policy, and cost-policy budget. No LLM call.
 
 ## Models
 
-Ollama Cloud primary + fallback per profile
-(`config/models.yaml`). install.sh pins `model.provider=ollama-cloud`
-for every profile unconditionally — switching a single profile to
-OpenRouter is a manual per-profile override (no entry in `models.yaml`
-yet):
+Per-profile **fallback chain** (`config/models.yaml`). install.sh writes:
+
+1. **Primary** — ollama-cloud (the per-profile model).
+2. **Fallback #1** — openrouter free tier (default `google/gemma-4-31b-it:free`,
+   checked live at install time; swap in `config/models.yaml` if 429).
+3. **Fallback #2** — cline custom provider. FREE models
+   `deepseek/deepseek-v4-flash` (coder) and `stepfun/step-3.7-flash`
+   (general). Endpoint `https://api.cline.bot/api/v1`, key from
+   `CLINE_API_KEY` env var (`~/.hermes/.env`). Cline is **not** Copilot —
+   it's a separate free API. Sign up free at `app.cline.bot`.
+
+Set `CLINE_API_KEY` in `~/.hermes/.env` to enable tier 3. Without it
+the chain falls back to tier 2 only.
+
+### Switch a profile to a different primary
 
 ```bash
-# switch the orchestrator to OpenRouter (free tier)
+# Use OpenRouter as primary for orchestrator (skip ollama-cloud)
 hermes -p orchestrator config set model.provider openrouter
 hermes -p orchestrator config set model.default "google/gemma-4-31b-it:free"
-# check live models: curl https://openrouter.ai/openrouter/free
 ```
 
-Edit `config/models.yaml` and re-run `install.sh` to apply globally
-(Ollama Cloud only).
+Or edit `config/models.yaml` and re-run `bash scripts/install.sh`.

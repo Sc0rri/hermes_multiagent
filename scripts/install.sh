@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# install.sh — read config/*.yaml, create 10 profiles (no bundled skills),
+# install.sh — read config/*.yaml, create N profiles (no bundled skills),
 # install each role's skill + per-profile SOUL.md + toolset allowlist +
-# per-profile .env + model fallback chain.
+# per-profile .env + model fallback chain (primary + openrouter + cline).
 # Idempotent. Run again after `git pull`.
 
 set -euo pipefail
@@ -46,39 +46,83 @@ declare -A DISABLED=(
   [auditor]="tts video video_gen image_gen homeassistant spotify yuanbao computer_use code_execution delegation cronjob browser write_file patch"
 )
 
-# ponytail: source of truth is config/models.yaml. Read once, parse with
-# python (yaml module is in stdlib-friendly; we use it for all config).
-parse_models() {
-  python3 -c "
+# ponytail: register custom_providers in the GLOBAL ~/.hermes/config.yaml
+# (not per-profile) so every profile can reference them by name. Idempotent.
+ensure_custom_providers() {
+  python3 <<PY
 import yaml
-d = yaml.safe_load(open('$CONFIG_DIR/models.yaml'))
-for name, m in d['profiles'].items():
-    print(f'{name}|{m[\"primary\"]}|{m.get(\"fallback\",\"\")}')"
+p = '$HERMES_HOME/config.yaml'
+with open(p) as f:
+    cfg = yaml.safe_load(f) or {}
+
+# ponytail: chain listed in a single helper so adding a new provider is
+# one block, not a brand-new function. CLINE_API_KEY must be exported in
+# ~/.hermes/.env (env var, not direct api_key — keeps secrets out of disk).
+PROVIDERS = [
+    {
+        "name": "cline",
+        "base_url": "https://api.cline.bot/api/v1",
+        "key_env": "CLINE_API_KEY",
+        "api_mode": "chat_completions",
+        "models": [
+            "deepseek/deepseek-v4-flash",
+            "stepfun/step-3.7-flash",
+        ],
+    },
+]
+
+cp = cfg.setdefault("custom_providers", [])
+existing = {c.get("name") for c in cp}
+for prov in PROVIDERS:
+    if prov["name"] not in existing:
+        cp.append(prov)
+
+with open(p, "w") as f:
+    yaml.safe_dump(cfg, f, sort_keys=False, default_flow_style=False)
+PY
 }
+ensure_custom_providers
+
+# ponytail: write model block (primary + provider + 3-tier fallback chain)
+# to every per-profile config.yaml in one python subprocess. Loop in bash
+# was unreliable (SIGPIPE from python's no-trailing-newline printer under
+# `set -euo pipefail` + process substitution). One process owns the whole
+# parse-and-write — simpler, debuggable, idempotent.
+apply_models() {
+  python3 <<PY
+import json, yaml
+from pathlib import Path
+
+models = yaml.safe_load(open('$CONFIG_DIR/models.yaml'))['profiles']
+hermes_home = Path('$HERMES_HOME')
+
+for name, m in models.items():
+    p = hermes_home / 'profiles' / name / 'config.yaml'
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open() as f:
+        cfg = yaml.safe_load(f) or {}
+    block = cfg.setdefault('model', {})
+    block['default'] = m['primary']
+    block['provider'] = 'ollama-cloud'
+    fallbacks = m.get('fallbacks', [])
+    if fallbacks:
+        # ponytail: ensure each fallback has provider + model; drop empty
+        for fb in fallbacks:
+            assert fb.get('provider') and fb.get('model'), f"{name} fallback missing field: {fb}"
+        block['fallback_model'] = fallbacks
+    else:
+        block.pop('fallback_model', None)
+    with p.open('w') as f:
+        yaml.safe_dump(cfg, f, sort_keys=False, default_flow_style=False)
+    print(f"  {name}: primary={m['primary']} fallbacks={len(fallbacks)}", flush=True)
+PY
+}
+apply_models
 
 for profile in "${PROFILES[@]}"; do
   if ! hermes profile list 2>/dev/null | grep -q "^[[:space:]]*$profile\b"; then
     hermes profile create "$profile" --no-skills --no-alias >/dev/null
   fi
-
-  # Read primary + fallback from models.yaml
-  while IFS='|' read -r name primary fallback; do
-    [[ "$name" != "$profile" ]] && continue
-    hermes -p "$profile" config set model.default "$primary" 2>/dev/null
-    hermes -p "$profile" config set model.provider ollama-cloud 2>/dev/null
-    # ponytail: fallback as a separate model. Hermes tries fallback on
-    # 429/5xx from primary. Same provider, different model.
-    if [[ -n "$fallback" ]]; then
-      python3 -c "
-import yaml
-p = '$HERMES_HOME/profiles/$profile/config.yaml'
-with open(p) as f: cfg = yaml.safe_load(f) or {}
-cfg.setdefault('model', {})['fallback_model'] = '$fallback'
-with open(p, 'w') as f: yaml.safe_dump(cfg, f, sort_keys=False, default_flow_style=False)
-"
-    fi
-  done < <(parse_models)
-
   # ponytail: disabled_toolsets via python+yaml — config set stringifies
   # JSON lists, so YAML edit is the only path that produces a real list.
   python3 -c "
@@ -142,12 +186,14 @@ with open(p, 'w') as f: yaml.safe_dump(cfg, f, sort_keys=False, default_flow_sty
 done
 
 cat <<EOF
->>> 10 profiles installed.
+>>> ${#PROFILES[@]} profiles installed.
 
 Routing/capability/policy in: config/*.yaml (also copied to each
 profile's home so the model can read them directly).
 
-Models: primary + fallback from config/models.yaml.
+Models: primary + 3-tier fallback chain from config/models.yaml
+  (ollama-cloud -> openrouter free -> cline free). Add CLINE_API_KEY
+  to ~/.hermes/.env to enable tier 3.
 Free-tier 429s? Swap: hermes -p <profile> config set model.default M
 Or set HERMES_<ROLE>_MODEL env var.
 

@@ -1,6 +1,6 @@
 name: fullstack-php-go-rust
-version: 0.18.0
-description: "Full-stack dev pack (PHP/Yii2/Laravel/OpenCart 2.x, Go, Rust). Orchestrator profile dispatches to sub-profiles via terminal."
+version: 0.19.0
+description: "Full-stack dev pack (PHP/Yii2/Laravel/OpenCart 2.x, Go, Rust + Cloudflare Workers wasm). Orchestrator profile dispatches to sub-profiles via terminal. 3-tier model fallback chain (ollama-cloud -> openrouter free -> cline free)."
 hermes_requires: ">=0.16.0"
 author: "Sc0rri"
 license: MIT
@@ -16,5 +16,9 @@ env_requires:
     required: false
   - name: OLLAMA_API_KEY
     description: "Ollama Cloud API key (optional)"
+    required: false
+    default: ""
+  - name: CLINE_API_KEY
+    description: "Cline API key for free models (deepseek-v4-flash, step-3.7-flash). Get at app.cline.bot → Settings → API Keys. Optional — chain degrades to openrouter when missing."
     required: false
     default: ""
