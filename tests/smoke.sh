@@ -12,6 +12,39 @@ echo "=== validate-config ==="
 python3 scripts/validate-config.py || exit 1
 
 echo
+echo "=== live config matches models.yaml (no drift) ==="
+python3 <<'PY'
+"""If config/models.yaml primary differs from the live per-profile
+config.yaml, install.sh was never re-run after a change and the
+profile is pinned to the old (possibly dead) model."""
+import yaml, sys, os
+hermes_home = os.path.expanduser('~/.hermes')
+ok, fail = 0, 0
+def check(cond, label):
+    global ok, fail
+    if cond:
+        print(f"  [OK] {label}"); ok += 1
+    else:
+        print(f"  [FAIL] {label}"); fail += 1
+
+repo_models = yaml.safe_load(open('config/models.yaml'))['profiles']
+for prof, m in repo_models.items():
+    p = os.path.join(hermes_home, 'profiles', prof, 'config.yaml')
+    if not os.path.exists(p):
+        print(f"  [SKIP] {prof}: no live config at {p}")
+        continue
+    live = yaml.safe_load(open(p))
+    primary_repo = m['primary']
+    primary_live = live['model']['default']
+    check(primary_repo == primary_live,
+          f"{prof}: repo={primary_repo} live={primary_live}")
+
+print()
+print(f"{ok} ok / {fail} fail")
+sys.exit(0 if fail == 0 else 1)
+PY
+
+echo
 echo "=== routing simulation ==="
 python3 - <<'PY'
 """Simulate routing on canned tasks. Catches keyword over-matching and
