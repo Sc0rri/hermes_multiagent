@@ -76,7 +76,48 @@ sys.exit(0 if fail == 0 else 1)
 PY
 
 echo
-echo "=== dispatch_profile plugin ==="
+echo "=== plugin registration + orchestrator toolset gates ==="
+python3 <<'PY'
+import yaml, sys
+ok, fail = 0, 0
+def check(cond, label):
+    global ok, fail
+    if cond:
+        print(f"  [OK] {label}"); ok += 1
+    else:
+        print(f"  [FAIL] {label}"); fail += 1
+
+# 1. global config: hermes_multiagent in plugins.enabled
+g = yaml.safe_load(open('/home/almes/.hermes/config.yaml')) if False else yaml.safe_load(open('/home/alex/.hermes/config.yaml'))
+enabled = g.get('plugins', {}).get('enabled', []) or []
+check('hermes_multiagent' in enabled,
+      "global plugins.enabled contains hermes_multiagent")
+
+# 2. orchestrator disabled_toolsets covers all file/search/skills tools
+o = yaml.safe_load(open('/home/alex/.hermes/profiles/orchestrator/config.yaml'))
+dt = set(o.get('agent', {}).get('disabled_toolsets', []) or [])
+must_disable = ['terminal', 'file', 'search', 'session_search',
+                'skills', 'memory', 'todo', 'project', 'process',
+                'browser', 'code_execution', 'delegation', 'cronjob']
+for t in must_disable:
+    check(t in dt, f"orchestrator disables toolset '{t}'")
+check('clarify' not in dt, "orchestrator keeps 'clarify' enabled")
+check('read_file' in dt or 'file' in dt,
+      "orchestrator disables read_file (via 'file' toolset)")
+
+# 3. plugin file is present in ~/.hermes/plugins
+import os
+plug_dir = '/home/alex/.hermes/plugins/hermes_multiagent'
+check(os.path.isdir(plug_dir), f"plugin dir exists: {plug_dir}")
+check(os.path.isfile(os.path.join(plug_dir, 'plugin.yaml')),
+      "plugin.yaml is present")
+check(os.path.isfile(os.path.join(plug_dir, '__init__.py')),
+      "__init__.py is present")
+
+print()
+print(f"{ok} ok / {fail} fail")
+sys.exit(0 if fail == 0 else 1)
+PY
 python3 <<'PY'
 import json, sys
 sys.path.insert(0, "plugins")

@@ -33,7 +33,7 @@ declare -A SOUL=(
 # needs stays enabled; everything else is disabled to keep the agent's
 # Orchestrator has NO tools except clarify — pure advisor mode.
 declare -A DISABLED=(
-  [orchestrator]="image_gen tts video video_gen homeassistant spotify yuanbao browser vision computer_use code_execution delegation cronjob file search write_file patch terminal"
+  [orchestrator]="image_gen tts video video_gen homeassistant spotify yuanbao browser vision computer_use code_execution delegation cronjob file search write_file patch terminal session_search skills memory todo project process read_terminal"
   [planner]="image_gen tts video video_gen homeassistant spotify yuanbao browser computer_use code_execution delegation cronjob"
   [researcher]="image_gen video video_gen homeassistant spotify yuanbao computer_use code_execution delegation cronjob"
   [php-dev]="image_gen tts video video_gen homeassistant spotify yuanbao computer_use delegation cronjob"
@@ -93,10 +93,34 @@ install_plugin() {
   local dst="$HERMES_HOME/plugins/hermes_multiagent"
   [[ -d "$src" ]] || { echo "plugin source missing: $src"; return 0; }
   mkdir -p "$dst"
-  cp -r "$src/." "$dst/"
+  # Skip __pycache__ so the install is reproducible across runs.
+  rsync -a --exclude='__pycache__' "$src/" "$dst/" 2>/dev/null \
+    || cp -r "$src/." "$dst/"
+  rm -rf "$dst/__pycache__"
   echo "  plugin installed: $dst"
 }
 install_plugin
+
+# ponytail: register the plugin in the global config so its toolset
+# shows up for orchestrator. Hermes's plugins.enabled list is a strict
+# whitelist — anything not in there is loaded but its tools are not
+# exposed. Idempotent.
+ensure_plugin_enabled() {
+  python3 <<PY
+import yaml
+from pathlib import Path
+cfg_path = Path("$HERMES_HOME/config.yaml")
+cfg = yaml.safe_load(cfg_path.read_text()) or {}
+plugins = cfg.setdefault("plugins", {})
+enabled = plugins.setdefault("enabled", [])
+if "hermes_multiagent" not in enabled:
+    enabled.append("hermes_multiagent")
+plugins["disabled"] = plugins.get("disabled") or []
+cfg_path.write_text(yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True))
+print("  plugins.enabled updated:", enabled)
+PY
+}
+ensure_plugin_enabled
 
 # ponytail: write model block (primary + provider + 3-tier fallback chain)
 # to every per-profile config.yaml in one python subprocess. Loop in bash
