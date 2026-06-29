@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # smoke.sh — validate config + simulate routing on canned tasks.
 # No LLM calls. Fast. Run before every commit.
+#
+# Note: pipefail is intentionally NOT set — orchestrator.sh returns
+# non-zero from the (stubbed) hermes invocation, which would mask the
+# real test result (the stdout line we grep for).
 
-set -euo pipefail
+set -eu
 cd "$(dirname "$0")/.."
 
 echo "=== validate-config ==="
@@ -66,6 +70,42 @@ for task, expected in cases:
         ok += 1
     else:
         fail += 1
+print()
+print(f"{ok} ok / {fail} fail")
+sys.exit(0 if fail == 0 else 1)
+PY
+
+echo
+echo "=== dispatch_profile plugin ==="
+python3 <<'PY'
+import json, sys
+sys.path.insert(0, "plugins")
+from hermes_multiagent.tools import _handle_dispatch_profile, DISPATCH_PROFILE_SCHEMA, TOOLS
+
+ok, fail = 0, 0
+def check(cond, label):
+    global ok, fail
+    if cond:
+        print(f"  [OK] {label}"); ok += 1
+    else:
+        print(f"  [FAIL] {label}"); fail += 1
+
+check(TOOLS == [("dispatch_profile", DISPATCH_PROFILE_SCHEMA, _handle_dispatch_profile, "🔀")],
+      "TOOLS tuple registered exactly once")
+check(DISPATCH_PROFILE_SCHEMA["parameters"]["required"] == ["profile", "task"],
+      "schema requires profile + task")
+check(json.dumps(DISPATCH_PROFILE_SCHEMA) and "hermes" in DISPATCH_PROFILE_SCHEMA["description"],
+      "schema description mentions hermes")
+
+out = json.loads(_handle_dispatch_profile({"task": "x"}))
+check(out["ok"] is False and "profile" in out["error"], "missing profile → JSON error")
+
+out = json.loads(_handle_dispatch_profile({"profile": "x"}))
+check(out["ok"] is False and "task" in out["error"], "missing task → JSON error")
+
+out = json.loads(_handle_dispatch_profile({"profile": "no-such-profile-xyz", "task": "y"}))
+check("exit_code" in out and "stderr" in out, "real dispatch returns exit_code + stderr")
+
 print()
 print(f"{ok} ok / {fail} fail")
 sys.exit(0 if fail == 0 else 1)

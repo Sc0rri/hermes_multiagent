@@ -22,14 +22,36 @@ registers the `cline` custom provider in the global
 
 ## Use
 
+One way: invoke the orchestrator profile. It dispatches to sub-profiles
+through the `dispatch_profile` plugin tool.
+
 ```bash
 hermes -p orchestrator chat
 # then: "Fix the bug in LoginController on empty email"
 ```
 
-The orchestrator is a router — it does not write code. It reads
-`config/routing.yaml` + `config/capabilities.yaml`, picks a pipeline,
-and dispatches each step via `hermes -p <profile> chat -q ... --yolo --quiet`.
+The orchestrator profile is **pure advisor** — it has only two tools:
+
+- `dispatch_profile(profile, task)` — runs the task on a sub-profile.
+- `clarify(question)` — asks the user one question when it can't pick.
+
+`terminal`, `read_file`, `search`, `write_file`, `patch`, and every
+other tool are disabled. The orchestrator cannot investigate the
+project itself — that was the recurring v0.19.x bug where the model
+ran `cat config/web.php` instead of dispatching to `php-dev`.
+
+### What the orchestrator does
+
+1. Reads the task.
+2. Picks a profile from the task's stack cues
+   (Yii2/Laravel/composer → `php-dev`, Go → `go-dev`, etc.).
+3. Calls `dispatch_profile(profile, task)`. The plugin tool runs
+   `hermes -p <profile> chat -q "<task>" --yolo --quiet` in a
+   subprocess and returns the sub-profile's output.
+4. If the stack is genuinely ambiguous, calls `clarify` to ask.
+
+Every reply prints `Planned chain:` and `Actual chain:` so the user
+can audit what happened.
 
 ### How the orchestrator decides where to send your task
 
@@ -62,7 +84,7 @@ its watchdog.
 
 | Profile         | Default model            | Disabled tools                    | Role                       |
 |-----------------|--------------------------|------------------------------------|----------------------------|
-| `orchestrator`  | `ministral-3:14b`        | file, search, write_file, patch (only `terminal` + `clarify`) | route + dispatch           |
+| `orchestrator`  | `gpt-oss:120b`           | everything except `dispatch_profile` + `clarify` | pure advisor (routes only) |
 | `planner`       | `ministral-3:14b`        | (heavy)                            | decompose features         |
 | `researcher`    | `ministral-3:8b`         | code_execution, terminal           | library/version lookup     |
 | `php-dev`       | `qwen3-coder:480b`       | image, tts, video, browser, ...   | write PHP                  |

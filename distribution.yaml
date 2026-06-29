@@ -1,5 +1,5 @@
 name: fullstack-php-go-rust
-version: 0.19.5
+version: 0.19.9
 description: "Full-stack dev pack (PHP/Yii2/Laravel/OpenCart 2.x, Go, Rust + Cloudflare Workers wasm). Orchestrator profile dispatches to sub-profiles via terminal. 3-tier model fallback chain (ollama-cloud -> openrouter free -> cline free)."
 hermes_requires: ">=0.16.0"
 author: "Sc0rri"

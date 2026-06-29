@@ -1,0 +1,7 @@
+name: hermes_multiagent
+version: 0.19.9
+description: "Profile dispatch for the hermes_multiagent distribution. One tool — dispatch_profile — runs `hermes -p <profile> chat -q ...` via subprocess. Lets the orchestrator profile dispatch without holding the terminal tool."
+author: Sc0rri
+kind: backend
+provides_tools:
+  - dispatch_profile

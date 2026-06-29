@@ -23,7 +23,7 @@
 profiles:
 
   orchestrator:
-    primary: ministral-3:14b
+    primary: gpt-oss:120b
     fallbacks:
       - {provider: openrouter, model: google/gemma-4-31b-it:free}
       - {provider: cline, model: deepseek/deepseek-v4-flash}
