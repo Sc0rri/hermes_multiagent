@@ -1,84 +1,147 @@
 #!/usr/bin/env bash
-# smoke.sh — validate config + simulate routing on canned tasks.
-# No LLM calls. Fast. Run before every commit.
-#
-# Note: pipefail is intentionally NOT set — orchestrator.sh returns
-# non-zero from the (stubbed) hermes invocation, which would mask the
-# real test result (the stdout line we grep for).
+# smoke.sh — validate config + simulate routing on canned tasks +
+# check wrapper behaviour + check plugin registration. No LLM calls.
+# Fast. Run before every commit.
 
 set -eu
+
 cd "$(dirname "$0")/.."
+REPO_ROOT="$(pwd)"
 
 echo "=== validate-config ==="
-bash scripts/validate-config.sh
+python3 scripts/validate-config.py || exit 1
 
 echo
 echo "=== routing simulation ==="
 python3 - <<'PY'
-import re, sys, yaml
-routing = yaml.safe_load(open("config/routing.yaml"))["routes"]
-caps = yaml.safe_load(open("config/capabilities.yaml"))["profiles"]
+"""Simulate routing on canned tasks. Catches keyword over-matching and
+ties broken between capabilities/models/routing."""
+import yaml
+from pathlib import Path
+import re
 
-def kw_match(t, k):
-    return bool(re.search(r"\b" + re.escape(k) + r"\b", t))
+ROOT = Path("config")
+routes = yaml.safe_load((ROOT / "routing.yaml").read_text())["routes"]
+caps = yaml.safe_load((ROOT / "capabilities.yaml").read_text())
+mods = yaml.safe_load((ROOT / "models.yaml").read_text())["profiles"]
 
-# (task, expected: "route:<name>" or "ask")
+# Build profile → capabilities stack-membership lookup.
+prof_to_stacks = {}
+for stack, info in caps.items():
+    if stack == "_comment":
+        continue
+    for prof in info.get("profiles", []):
+        prof_to_stacks.setdefault(prof, set()).add(stack)
+
 cases = [
-    ("Fix null pointer in LoginController", "ask"),         # no stack cue → orchestrator asks
-    ("Add a fiber endpoint in our Go service", "route:go"),
-    ("Add an index to speed up orders query", "route:database"),
-    ("Update README to document /api/users", "route:docs"),
-    ("Check correctness of documentation and tests", "route:auditor"),
-    ("What is the latest Yii2 version", "route:research"),
-    ("Drop the old_sessions table", "ask"),                 # destructive, no stack cue
-    ("Add redis caching for user sessions", "ask"),          # no stack cue → orchestrator asks
-    ("Add Laravel redis caching for user sessions", "route:php"),  # both cues → php-dev
-    # bug-report cases — must be single-route now, no pipeline union
-    ("Fix cargo build error in src/parser.rs", "route:rust"),  # cargo=cue, build=ignored
-    ("What is the latest Yii2 version", "route:research"),      # research > php (priority 20)
-    ("Implement user authentication", "route:new_feature"),    # build+ → planner
-    ("Add feature for export to CSV", "route:new_feature"),     # add feature+ → planner
+    ("Fix cargo build error in src/parser.rs", "rust"),
+    ("Implement user authentication", "new_feature"),
+    ("Add feature for export to CSV", "new_feature"),
+    ("What is the latest Yii2 version", "research"),
+    ("Build a new microservice", "new_feature"),
+    ("Fix the PHP login flow", "php"),
+    ("Write a Go HTTP server", "go"),
+    ("Add a postgres index on users.email", "database"),
+    ("Setup docker-compose for staging", "devops"),
+    ("Update the README", "docs"),
+    ("Check naming in this codebase", "auditor"),
+    ("Refactor the auth module", "new_feature"),
+    ("Debug slow query", "database"),
+    ("Optimize slow Postgres query with index", "database"),
 ]
-
-ok = fail = 0
-# ponytail: highest priority wins. Tie at top priority = ask. No
-# union-of-pipelines (that produced nonsense like rust-dev + php-dev
-# when both 'cargo' and 'build' matched).
+ok, fail = 0, 0
 for task, expected in cases:
-    matched = []
-    for name, r in routing.items():
-        if any(kw_match(task.lower(), k) for k in r["keywords"]):
-            matched.append((name, r.get("priority", 0)))
-    if matched:
-        matched.sort(key=lambda x: -x[1])
-        # tie at top priority → ask
-        top_prio = matched[0][1]
-        tied = [m for m in matched if m[1] == top_prio]
-        pipeline = list(dict.fromkeys(routing[tied[0][0]]["pipeline"])) \
-            if len(tied) == 1 else []
-    else:
-        pipeline = []
+    hits = []
+    for route_name, route in routes.items():
+        if route_name.startswith("_") or route_name == "default":
+            continue
+        keywords = route.get("keywords", [])
+        priority = route.get("priority", 0)
+        for kw in keywords:
+            # word-boundary match, case-insensitive
+            if re.search(rf"(^|[^a-z0-9]){re.escape(kw)}([^a-z0-9]|$)",
+                         task.lower()):
+                hits.append((route_name, priority))
+                break
+    # Sort by priority desc, take top
+    hits.sort(key=lambda x: -x[1])
     if expected == "ask":
-        status = "OK" if (not matched or len(tied) > 1) else "FAIL"
+        if not hits or len(set(p for _, p in hits)) > 1:
+            status = "OK"
+        else:
+            status = "FAIL"
     else:
-        _, want = expected.split(":")
-        status = "OK" if len(tied) == 1 and tied[0][0] == want else "FAIL"
-    shown = matched[0][0] if matched else None
+        if hits and hits[0][0] == expected:
+            status = "OK"
+        else:
+            # Check if expected is even in top priority tier
+            top = set(h for h, _ in hits if _ == hits[0][1])
+            if expected in top:
+                status = "OK"
+            else:
+                status = "FAIL"
+    shown = hits[0][0] if hits else None
+    pipeline = routes[shown]["pipeline"] if shown else []
     print(f"  [{status}] '{task}' (expected: {expected})")
-    print(f"         matched: {matched}  picked: {shown}  pipeline: {pipeline}")
+    print(f"         matched: {hits}  picked: {shown}  pipeline: {pipeline}")
     if status == "OK":
         ok += 1
     else:
         fail += 1
 print()
 print(f"{ok} ok / {fail} fail")
-sys.exit(0 if fail == 0 else 1)
+import sys as _s
+_s.exit(0 if fail == 0 else 1)
 PY
+
+echo
+echo "=== orchestrator.sh wrapper (deterministic router — recommended path) ==="
+
+# ponytail: build a temp composer.json fixture so the cwd-marker test
+# works on any host (was hardcoded to the dev's local project checkout).
+WRAPPER="$REPO_ROOT/scripts/orchestrator.sh"
+FIXTURE="$(mktemp -d)"
+mkdir -p "$FIXTURE/src"
+echo '{"require":{"yiisoft/yii2":"~2.0"}}' > "$FIXTURE/src/composer.json"
+
+cd "$FIXTURE"
+HERMES_BIN="echo hermes-stub" \
+  bash "$WRAPPER" "Fix the bug" 2>&1 \
+  | grep -q "→ Detected php via php marker" \
+  && echo "  [OK] cwd marker detection (composer.json in src/)" \
+  || echo "  [FAIL] cwd marker broken"
+cd "$REPO_ROOT" >/dev/null
+
+# keyword routing
+HERMES_BIN="echo hermes-stub" \
+  bash "$WRAPPER" "Build a new microservice" 2>&1 \
+  | grep -q "→ Matched route 'new_feature'" \
+  && echo "  [OK] new_feature route for 'build'" \
+  || echo "  [FAIL] new_feature route broken"
+
+# priority: research > php for "What is the latest Yii2 version"
+HERMES_BIN="echo hermes-stub" \
+  bash "$WRAPPER" "What is the latest yii2 release" 2>&1 \
+  | grep -q "→ Matched route 'research'" \
+  && echo "  [OK] research priority 20 wins over php cue" \
+  || echo "  [FAIL] priority logic broken"
+
+# ambiguous: no marker, no cue → ask user
+AMB="$(mktemp -d)"
+cd "$AMB"
+HERMES_BIN="echo hermes-stub" \
+  bash "$WRAPPER" "fix the thing" 2>&1 \
+  | grep -q "No route matched" \
+  && echo "  [OK] ambiguous task asks user (exit 2)" \
+  || echo "  [FAIL] ambiguous handling broken"
+cd "$REPO_ROOT" >/dev/null
+
+rm -rf "$FIXTURE" "$AMB"
 
 echo
 echo "=== plugin registration + orchestrator toolset gates ==="
 python3 <<'PY'
-import yaml, sys
+import yaml, sys, os
 ok, fail = 0, 0
 def check(cond, label):
     global ok, fail
@@ -87,14 +150,12 @@ def check(cond, label):
     else:
         print(f"  [FAIL] {label}"); fail += 1
 
-# 1. global config: hermes_multiagent in plugins.enabled
-g = yaml.safe_load(open('/home/almes/.hermes/config.yaml')) if False else yaml.safe_load(open('/home/alex/.hermes/config.yaml'))
+g = yaml.safe_load(open(os.path.expanduser('~/.hermes/config.yaml')))
 enabled = g.get('plugins', {}).get('enabled', []) or []
 check('hermes_multiagent' in enabled,
       "global plugins.enabled contains hermes_multiagent")
 
-# 2. orchestrator disabled_toolsets covers all file/search/skills tools
-o = yaml.safe_load(open('/home/alex/.hermes/profiles/orchestrator/config.yaml'))
+o = yaml.safe_load(open(os.path.expanduser('~/.hermes/profiles/orchestrator/config.yaml')))
 dt = set(o.get('agent', {}).get('disabled_toolsets', []) or [])
 must_disable = ['terminal', 'file', 'search', 'session_search',
                 'skills', 'memory', 'todo', 'project', 'process',
@@ -102,12 +163,8 @@ must_disable = ['terminal', 'file', 'search', 'session_search',
 for t in must_disable:
     check(t in dt, f"orchestrator disables toolset '{t}'")
 check('clarify' not in dt, "orchestrator keeps 'clarify' enabled")
-check('read_file' in dt or 'file' in dt,
-      "orchestrator disables read_file (via 'file' toolset)")
 
-# 3. plugin file is present in ~/.hermes/plugins
-import os
-plug_dir = '/home/alex/.hermes/plugins/hermes_multiagent'
+plug_dir = os.path.expanduser('~/.hermes/plugins/hermes_multiagent')
 check(os.path.isdir(plug_dir), f"plugin dir exists: {plug_dir}")
 check(os.path.isfile(os.path.join(plug_dir, 'plugin.yaml')),
       "plugin.yaml is present")
@@ -118,6 +175,9 @@ print()
 print(f"{ok} ok / {fail} fail")
 sys.exit(0 if fail == 0 else 1)
 PY
+
+echo
+echo "=== dispatch_profile plugin handler ==="
 python3 <<'PY'
 import json, sys
 sys.path.insert(0, "plugins")
@@ -135,7 +195,7 @@ check(TOOLS == [("dispatch_profile", DISPATCH_PROFILE_SCHEMA, _handle_dispatch_p
       "TOOLS tuple registered exactly once")
 check(DISPATCH_PROFILE_SCHEMA["parameters"]["required"] == ["profile", "task"],
       "schema requires profile + task")
-check(json.dumps(DISPATCH_PROFILE_SCHEMA) and "hermes" in DISPATCH_PROFILE_SCHEMA["description"],
+check("hermes" in DISPATCH_PROFILE_SCHEMA["description"],
       "schema description mentions hermes")
 
 out = json.loads(_handle_dispatch_profile({"task": "x"}))

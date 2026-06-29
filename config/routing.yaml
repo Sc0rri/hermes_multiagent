@@ -50,7 +50,7 @@ routes:
     priority: 20
 
   new_feature:
-    keywords: [add feature, implement, build, new service, refactor across]
+    keywords: [add, feature, implement, build, new, service, refactor, across]
     pipeline: [planner, php-dev, reviewer]   # planner decides stack at runtime
     planner_decides_stack: true
     priority: 0

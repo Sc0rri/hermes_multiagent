@@ -22,36 +22,39 @@ registers the `cline` custom provider in the global
 
 ## Use
 
-One way: invoke the orchestrator profile. It dispatches to sub-profiles
-through the `dispatch_profile` plugin tool.
+**Recommended path: the wrapper.** It bypasses the Hermes agent loop
+entirely — pure bash, deterministic routing, works on every install
+regardless of which plugins the desktop app surfaced in the model's
+tool palette.
 
 ```bash
-hermes -p orchestrator chat
-# then: "Fix the bug in LoginController on empty email"
+cd /home/alex/PhpstormProjects/bikesbay
+bash /path/to/hermes_multiagent/scripts/orchestrator.sh "Fix the YAML config"
+# → Detected php via php marker; dispatching to php-dev
 ```
 
-The orchestrator profile is **pure advisor** — it has only two tools:
+The wrapper runs no LLM. It:
 
-- `dispatch_profile(profile, task)` — runs the task on a sub-profile.
-- `clarify(question)` — asks the user one question when it can't pick.
+1. Detects the stack from filesystem markers in the cwd (`composer.json`,
+   `go.mod`, `Cargo.toml`, `package.json` — also checked in `cwd/src/`
+   for Yii2 layouts).
+2. Falls back to keyword matching with priority
+   (`research > php/go/rust > auditor/docs > new_feature`).
+3. Asks the user if both fail (printed to stderr, exit code 2).
 
-`terminal`, `read_file`, `search`, `write_file`, `patch`, and every
-other tool are disabled. The orchestrator cannot investigate the
-project itself — that was the recurring v0.19.x bug where the model
-ran `cat config/web.php` instead of dispatching to `php-dev`.
+### LLM orchestrator (best-effort)
 
-### What the orchestrator does
+A `hermes_multiagent` plugin also ships a `dispatch_profile` tool that
+the `orchestrator` profile can invoke. The plugin is registered in
+`plugins.enabled` on install, and `hermes -p orchestrator chat` will
+list it via `hermes tools list`. **In our experience the desktop app
+doesn't always surface plugin tools to the model's tool palette on
+every session** — the wrapper above is the reliable path.
 
-1. Reads the task.
-2. Picks a profile from the task's stack cues
-   (Yii2/Laravel/composer → `php-dev`, Go → `go-dev`, etc.).
-3. Calls `dispatch_profile(profile, task)`. The plugin tool runs
-   `hermes -p <profile> chat -q "<task>" --yolo --quiet` in a
-   subprocess and returns the sub-profile's output.
-4. If the stack is genuinely ambiguous, calls `clarify` to ask.
-
-Every reply prints `Planned chain:` and `Actual chain:` so the user
-can audit what happened.
+The LLM orchestrator profile is pure advisor — it has only two tools
+(`dispatch_profile` + `clarify`). `terminal`, `read_file`, `search`,
+`write_file`, `patch`, `session_search`, `skills`, `memory`, `todo`,
+`project`, `process`, and every other tool are disabled.
 
 ### How the orchestrator decides where to send your task
 
@@ -84,7 +87,7 @@ its watchdog.
 
 | Profile         | Default model            | Disabled tools                    | Role                       |
 |-----------------|--------------------------|------------------------------------|----------------------------|
-| `orchestrator`  | `gpt-oss:120b`           | everything except `dispatch_profile` + `clarify` | pure advisor (routes only) |
+| `orchestrator`  | `gpt-oss:120b`           | everything except `dispatch_profile` + `clarify` | pure advisor (routes only) — wrapper is the recommended path |
 | `planner`       | `ministral-3:14b`        | (heavy)                            | decompose features         |
 | `researcher`    | `ministral-3:8b`         | code_execution, terminal           | library/version lookup     |
 | `php-dev`       | `qwen3-coder:480b`       | image, tts, video, browser, ...   | write PHP                  |
