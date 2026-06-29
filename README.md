@@ -27,15 +27,42 @@ hermes -p orchestrator chat
 # then: "Fix the bug in LoginController on empty email"
 ```
 
-Orchestrator reads `config/routing.yaml` + `config/capabilities.yaml`,
-picks the right pipeline, and runs each step via
-`hermes -p <profile> chat -q ... --yolo --quiet`.
+The orchestrator is a router — it does not write code. It reads
+`config/routing.yaml` + `config/capabilities.yaml`, picks a pipeline,
+and dispatches each step via `hermes -p <profile> chat -q ... --yolo --quiet`.
+
+### How the orchestrator decides where to send your task
+
+1. **Project markers.** Runs `pwd; ls composer.json go.mod Cargo.toml`.
+   First match wins: `composer.json`→`php-dev`, `go.mod`→`go-dev`,
+   `Cargo.toml`→`rust-dev`. Works for any project, no config needed.
+2. **Stack cues in the task text** (`yii2`, `go`, `cargo`, `docker`,
+   etc.). Highest-priority route wins; ties → ask user.
+3. **Still ambiguous?** Orchestrator asks one clarifying question via
+   the `clarify` tool and waits for your answer. No guessing.
+
+### What you see in the chat
+
+Every orchestrator reply starts with two diagnostic lines and may
+stream live dispatch status:
+
+```
+Planned chain:   php-dev → reviewer
+Dispatching php-dev: write the LoginController empty-email fix
+Dispatching reviewer: review pass on the diff
+Actual chain:    php-dev → reviewer
+```
+
+If the orchestrator skipped dispatch (genuinely a meta-question),
+`Actual chain` reads `(none — answered as router)`. Its absence means
+the model answered directly — that's the v0.19.2 bug; this line is
+its watchdog.
 
 ## Profiles
 
 | Profile         | Default model            | Disabled tools                    | Role                       |
 |-----------------|--------------------------|------------------------------------|----------------------------|
-| `orchestrator`  | `ministral-3:14b`        | file, search, write_file, patch   | route + dispatch           |
+| `orchestrator`  | `ministral-3:14b`        | file, search, write_file, patch (only `terminal` + `clarify`) | route + dispatch           |
 | `planner`       | `ministral-3:14b`        | (heavy)                            | decompose features         |
 | `researcher`    | `ministral-3:8b`         | code_execution, terminal           | library/version lookup     |
 | `php-dev`       | `qwen3-coder:480b`       | image, tts, video, browser, ...   | write PHP                  |
@@ -87,7 +114,7 @@ config/
   review-policy.yaml   policy → passes + max_cycles
   cost-policy.yaml     complexity → max LLM calls
   context-policy.yaml  max_files / max_tokens caps
-  models.yaml          primary + fallback model per profile
+  models.yaml          primary + 3-tier fallback chain per profile
 ```
 
 Add `symfony-dev` by adding entries to `capabilities.yaml`, `models.yaml`,

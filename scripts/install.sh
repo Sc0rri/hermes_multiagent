@@ -33,7 +33,7 @@ declare -A SOUL=(
 # needs stays enabled; everything else is disabled to keep the agent's
 # tool palette tight. Orchestrator has NO file tools — must dispatch.
 declare -A DISABLED=(
-  [orchestrator]="image_gen tts video video_gen homeassistant spotify yuanbao browser vision computer_use code_execution delegation cronjob clarify file search write_file patch"
+  [orchestrator]="image_gen tts video video_gen homeassistant spotify yuanbao browser vision computer_use code_execution delegation cronjob file search write_file patch"
   [planner]="image_gen tts video video_gen homeassistant spotify yuanbao browser computer_use code_execution delegation cronjob"
   [researcher]="image_gen video video_gen homeassistant spotify yuanbao computer_use code_execution delegation cronjob"
   [php-dev]="image_gen tts video video_gen homeassistant spotify yuanbao computer_use delegation cronjob"
